@@ -113,7 +113,6 @@ No API key required. It reads directly from your `claude.ai` session using a bui
 ## Requirements
 
 - macOS 13 Ventura or later
-- Xcode 15+ (to build from source)
 - A claude.ai account
 
 ---
@@ -131,13 +130,6 @@ brew install --cask claudechecker
 2. Download `ClaudeChecker.zip` from the latest release
 3. Unzip and drag `ClaudeChecker.app` to `/Applications`
 4. Open from Applications — it will appear in your menubar
-
-### Build from source
-```bash
-git clone https://github.com/superdooper86/claudechecker.git
-open ClaudeChecker/ClaudeChecker.xcodeproj
-```
-Then in Xcode: set your Team under Signing & Capabilities, then **⌘R** to run.
 
 ---
 
