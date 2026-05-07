@@ -81,9 +81,9 @@ jobs:
 
       - name: Update Homebrew tap
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAP_TOKEN: ${{ secrets.TAP_TOKEN }}
         run: |
-          git clone https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository_owner }}/homebrew-tap /tmp/homebrew-tap
+          git clone https://x-access-token:${{ secrets.TAP_TOKEN }}@github.com/${{ github.repository_owner }}/homebrew-tap /tmp/homebrew-tap
           sed -i '' \
             -e 's/version "[^"]*"/version "${{ steps.version.outputs.version }}"/' \
             -e 's/sha256 "[^"]*"/sha256 "${{ steps.sha.outputs.sha256 }}"/' \
