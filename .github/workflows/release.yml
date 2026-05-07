@@ -70,6 +70,11 @@ jobs:
           sed -i '' \
             's/version-[0-9][^-]*-orange/version-${{ steps.version.outputs.version }}-orange/' \
             README.md
+          # Remove beta badge now that stable is released
+          sed -i '' '/<!-- BETA_BADGE -->/d' README.md
+          # Re-add empty marker so future betas can target it
+          sed -i '' '/license-MIT-blue/a\
+<!-- BETA_BADGE -->' README.md
 
       - name: Commit version.json and README
         run: |

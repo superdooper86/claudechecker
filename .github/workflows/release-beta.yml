@@ -54,10 +54,26 @@ jobs:
             --arg notes "$notes" \
             '{version: $version, url: $url, notes: $notes}' > version-beta.json
 
-      - name: Commit version-beta.json
+      - name: Update beta badge in README
+        run: |
+          shields_version=$(echo "${{ steps.version.outputs.version }}" | sed 's/-/--/g')
+          tag="${{ github.ref_name }}"
+          badge="[![Beta](https://img.shields.io/badge/beta-${shields_version}-orange?style=flat)](https://github.com/${{ github.repository }}/releases/tag/${tag}) <!-- BETA_BADGE -->"
+          python3 -c "
+lines = open('README.md').readlines()
+out = []
+for line in lines:
+    if '<!-- BETA_BADGE -->' in line:
+        out.append('${badge}\n')
+    else:
+        out.append(line)
+open('README.md', 'w').writelines(out)
+"
+
+      - name: Commit version-beta.json and README
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add version-beta.json
+          git add version-beta.json README.md
           git commit -m "Beta release ${{ github.ref_name }}"
           git push origin HEAD:main
