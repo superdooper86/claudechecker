@@ -1,0 +1,96 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: macos-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get version from tag
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+
+      - name: Build
+        run: |
+          xcodebuild \
+            -project ClaudeChecker.xcodeproj \
+            -scheme ClaudeChecker \
+            -configuration Release \
+            -derivedDataPath build \
+            clean build
+
+      - name: Zip app
+        run: |
+          ditto -c -k --keepParent \
+            build/Build/Products/Release/ClaudeChecker.app \
+            ClaudeChecker.zip
+
+      - name: Compute SHA256
+        id: sha
+        run: echo "sha256=$(shasum -a 256 ClaudeChecker.zip | awk '{print $1}')" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" ClaudeChecker.zip \
+            --title "$GITHUB_REF_NAME" \
+            --notes "$(cat RELEASE_NOTES.md 2>/dev/null || echo 'Release ${{ steps.version.outputs.version }}')"
+
+      - name: Update version.json
+        run: |
+          cat > version.json << JSON
+          {
+            "version": "${{ steps.version.outputs.version }}",
+            "url": "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/ClaudeChecker.zip",
+            "notes": "$(cat RELEASE_NOTES.md 2>/dev/null || echo 'Release ${{ steps.version.outputs.version }}')"
+          }
+          JSON
+
+      - name: Update Homebrew cask
+        run: |
+          sed -i '' \
+            -e 's/version "[^"]*"/version "${{ steps.version.outputs.version }}"/' \
+            -e 's/sha256 "[^"]*"/sha256 "${{ steps.sha.outputs.sha256 }}"/' \
+            ../homebrew-tap/Casks/claudechecker.rb 2>/dev/null || true
+
+      - name: Update README badge
+        run: |
+          sed -i '' \
+            's/version-[0-9][^-]*-orange/version-${{ steps.version.outputs.version }}-orange/' \
+            README.md
+
+      - name: Commit version.json and README
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add version.json README.md
+          git commit -m "Release ${{ github.ref_name }}"
+          git push origin HEAD:main
+
+      - name: Update Homebrew tap
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git clone https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository_owner }}/homebrew-tap /tmp/homebrew-tap
+          sed -i '' \
+            -e 's/version "[^"]*"/version "${{ steps.version.outputs.version }}"/' \
+            -e 's/sha256 "[^"]*"/sha256 "${{ steps.sha.outputs.sha256 }}"/' \
+            /tmp/homebrew-tap/Casks/claudechecker.rb
+          cd /tmp/homebrew-tap
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Casks/claudechecker.rb
+          git commit -m "Update claudechecker to ${{ github.ref_name }}"
+          git push
