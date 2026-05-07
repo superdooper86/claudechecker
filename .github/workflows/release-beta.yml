@@ -58,17 +58,16 @@ jobs:
         run: |
           shields_version=$(echo "${{ steps.version.outputs.version }}" | sed 's/-/--/g')
           tag="${{ github.ref_name }}"
-          badge="[![Beta](https://img.shields.io/badge/beta-${shields_version}-orange?style=flat)](https://github.com/${{ github.repository }}/releases/tag/${tag}) <!-- BETA_BADGE -->"
+          export BADGE="[![Beta](https://img.shields.io/badge/beta-${shields_version}-orange?style=flat)](https://github.com/${{ github.repository }}/releases/tag/${tag}) <!-- BETA_BADGE -->"
           python3 -c "
-lines = open('README.md').readlines()
-out = []
-for line in lines:
-    if '<!-- BETA_BADGE -->' in line:
-        out.append('${badge}\n')
-    else:
-        out.append(line)
-open('README.md', 'w').writelines(out)
-"
+          import os
+          badge = os.environ['BADGE']
+          lines = open('README.md').readlines()
+          out = []
+          for line in lines:
+              out.append(badge + chr(10) if '<!-- BETA_BADGE -->' in line else line)
+          open('README.md', 'w').writelines(out)
+          "
 
       - name: Commit version-beta.json and README
         run: |
