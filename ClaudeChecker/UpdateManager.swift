@@ -319,6 +319,7 @@ class UpdateManager: ObservableObject {
 
     private func isNewer(_ version: String, than current: String) -> Bool {
         func parse(_ v: String) -> (base: [Int], pre: [Int]?) {
+            guard !v.isEmpty else { return ([], nil) }
             let halves = v.split(separator: "-", maxSplits: 1)
             let base = halves[0].split(separator: ".").compactMap { Int($0) }
             let pre = halves.count > 1 ? String(halves[1]).split(separator: ".").compactMap { Int($0) } : nil
