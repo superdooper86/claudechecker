@@ -1,0 +1,5 @@
+{
+  "version": "1.0.1",
+  "url": "https://github.com/superdooper86/claudechecker/releases/download/v1.0.1/ClaudeChecker.zip",
+  "notes": "Update banner can now be dismissed. Fixes update state not clearing correctly."
+}
