@@ -1,5 +1,5 @@
 {
-  "version": "1.1.1",
-  "url": "https://github.com/superdooper86/claudechecker/releases/download/v1.0.10/ClaudeChecker.zip",
-  "notes": "## What's new in v1.0.10\\n\\n### Main window always opens on click\\nClosing the app while Settings was open would cause the next click to reopen straight to Settings. The app now always returns to the main window when reopened."
+  "version": "1.0.11",
+  "url": "https://github.com/superdooper86/claudechecker/releases/download/v1.0.11/ClaudeChecker.zip",
+  "notes": "## What's new in v1.0.11\n\n### Update indicator in menubar\nWhen an update is available, the menubar now shows **↑ Update** alongside your usage percentages — so you can see there's an update without opening the app.\n\n### Update banner can't be dismissed\nThe × close button has been removed from the update banner. The banner stays visible until you install the update."
 }
