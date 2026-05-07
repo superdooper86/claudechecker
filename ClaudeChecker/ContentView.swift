@@ -491,7 +491,7 @@ struct FooterBar: View {
 struct ExtraUsageRow: View {
     let extra: ExtraUsage
 
-    var pct: Double { min(100, max(0, extra.utilization)) }
+    var pct: Double { min(100, max(0, extra.utilization ?? 0)) }
     var color: Color { pct > 80 ? .red : pct > 50 ? .orange : .green }
 
     var body: some View {
@@ -504,7 +504,7 @@ struct ExtraUsageRow: View {
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(.secondary)
                 Spacer()
-                Text("\(extra.currency) \(String(format: "%.2f", extra.usedCredits / 100)) / \(String(format: "%.2f", extra.monthlyLimit / 100))")
+                Text("\(extra.currency ?? "") \(String(format: "%.2f", (extra.usedCredits ?? 0) / 100)) / \(String(format: "%.2f", (extra.monthlyLimit ?? 0) / 100))")
                     .font(.system(size: 11.5, weight: .medium).monospacedDigit())
                     .foregroundColor(color)
             }
