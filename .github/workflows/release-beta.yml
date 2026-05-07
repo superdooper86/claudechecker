@@ -1,0 +1,63 @@
+name: Release Beta
+
+on:
+  push:
+    tags:
+      - 'v*-beta*'
+
+jobs:
+  release-beta:
+    runs-on: macos-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get version from tag
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+
+      - name: Build
+        run: |
+          xcodebuild \
+            -project ClaudeChecker.xcodeproj \
+            -scheme ClaudeChecker \
+            -configuration Release \
+            -derivedDataPath build \
+            clean build
+
+      - name: Zip app
+        run: |
+          ditto -c -k --keepParent \
+            build/Build/Products/Release/ClaudeChecker.app \
+            ClaudeChecker.zip
+
+      - name: Create GitHub pre-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" ClaudeChecker.zip \
+            --title "$GITHUB_REF_NAME" \
+            --prerelease \
+            --notes "$(cat RELEASE_NOTES.md 2>/dev/null || echo 'Beta release ${{ steps.version.outputs.version }}')"
+
+      - name: Update version-beta.json
+        run: |
+          notes=$(cat RELEASE_NOTES.md 2>/dev/null || echo "Beta release ${{ steps.version.outputs.version }}")
+          jq -n \
+            --arg version "${{ steps.version.outputs.version }}" \
+            --arg url "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/ClaudeChecker.zip" \
+            --arg notes "$notes" \
+            '{version: $version, url: $url, notes: $notes}' > version-beta.json
+
+      - name: Commit version-beta.json
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add version-beta.json
+          git commit -m "Beta release ${{ github.ref_name }}"
+          git push origin HEAD:main
