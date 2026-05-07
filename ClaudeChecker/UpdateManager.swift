@@ -94,14 +94,23 @@ class UpdateManager: ObservableObject {
                 latestBetaVersion = beta.version
                 betaAvailable = true
                 if betaChannel && isNewer(beta.version, than: latestVersion) {
+                    let wasAvailable = updateAvailable
                     latestVersion = beta.version
                     releaseNotes = beta.notes ?? ""
                     downloadURL = beta.url
                     updateAvailable = true
+                    if !wasAvailable {
+                        NotificationCenter.default.post(name: .updateDetected, object: beta.version)
+                    }
                 }
+            } else {
+                betaAvailable = false
+                latestBetaVersion = ""
             }
         } else {
             print("[UpdateManager] Beta fetch returned nil")
+            betaAvailable = false
+            latestBetaVersion = ""
         }
     }
 

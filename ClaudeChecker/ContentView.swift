@@ -774,14 +774,16 @@ struct SettingsView: View {
                                 .padding(.vertical, 2)
                                 .background(Color.blue)
                                 .cornerRadius(4)
+                                .fixedSize()
                         } else if updater.betaAvailable {
-                            Text("v\(updater.latestBetaVersion) beta")
+                            Text("v\(updater.latestBetaVersion) available")
                                 .font(.system(size: 10, weight: .medium))
                                 .foregroundColor(.white)
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 2)
                                 .background(Color.orange)
                                 .cornerRadius(4)
+                                .fixedSize()
                         }
                     }
                     Text("Built by superdooper86 & claude")
