@@ -1,5 +1,5 @@
 {
-  "version": "2.0.7",
-  "url": "https://github.com/superdooper86/claudechecker/releases/download/v2.0.7/ClaudeChecker.zip",
-  "notes": "Show account email in settings auth section."
+  "version": "2.0.8",
+  "url": "https://github.com/superdooper86/claudechecker/releases/download/v2.0.8/ClaudeChecker.zip",
+  "notes": "Updated data sources list in settings."
 }

@@ -735,8 +735,10 @@ struct SettingsView: View {
                     .font(.system(size: 12, weight: .medium))
                     .foregroundColor(.secondary)
                 VStack(alignment: .leading, spacing: 2) {
+                    Text("• /api/bootstrap")
                     Text("• /api/organizations/{id}/usage")
-                    Text("• /api/organizations/{id}/rate_limits")
+                    Text("• /api/organizations/{id}/overage_spend_limit")
+                    Text("• /api/organizations/{id}/prepaid/credits")
                 }
                 .font(.system(size: 11, design: .monospaced))
                 .foregroundColor(Color.secondary.opacity(0.7))
