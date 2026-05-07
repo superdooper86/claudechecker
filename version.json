@@ -1,5 +1,5 @@
 {
-  "version": "2.0.5",
-  "url": "https://github.com/superdooper86/claudechecker/releases/download/v2.0.5/ClaudeChecker.zip",
-  "notes": "Fixed window size and update banner dismiss."
+  "version": "2.0.6",
+  "url": "https://github.com/superdooper86/claudechecker/releases/download/v2.0.6/ClaudeChecker.zip",
+  "notes": "Authentication section shows sign-in status with re-authenticate and sign out options."
 }

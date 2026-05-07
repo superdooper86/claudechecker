@@ -591,25 +591,48 @@ struct SettingsView: View {
                 .font(.system(size: 16, weight: .semibold))
 
             // Auth section
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 8) {
                 Label("Authentication", systemImage: "person.crop.circle")
                     .font(.system(size: 12, weight: .medium))
                     .foregroundColor(.secondary)
 
-                Text("ClaudeChecker signs into claude.ai inside a built-in browser window and reads your quota data directly from the API. Your session is stored locally and persists across restarts.")
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(vm.isSignedIn ? Color.green : Color.orange)
+                        .frame(width: 7, height: 7)
+                    Text(vm.isSignedIn ? "Signed in to claude.ai" : "Not signed in")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(vm.isSignedIn ? .primary : .orange)
+                }
+
+                Text("Your session is stored locally and persists across restarts.")
                     .font(.system(size: 11.5))
                     .foregroundColor(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
-                Button(action: {
-                    showSettings = false
-                    vm.triggerLogin = true
-                }) {
-                    Label("Sign in again", systemImage: "arrow.right.circle")
-                        .font(.system(size: 12))
+                HStack(spacing: 8) {
+                    Button(action: {
+                        showSettings = false
+                        vm.triggerLogin = true
+                    }) {
+                        Label(vm.isSignedIn ? "Re-authenticate" : "Sign in", systemImage: "arrow.right.circle")
+                            .font(.system(size: 12))
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+
+                    if vm.isSignedIn {
+                        Button(action: {
+                            Task { await vm.signOut() }
+                        }) {
+                            Label("Sign out", systemImage: "rectangle.portrait.and.arrow.right")
+                                .font(.system(size: 12))
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        .tint(.red)
+                    }
                 }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
             }
 
             Divider()

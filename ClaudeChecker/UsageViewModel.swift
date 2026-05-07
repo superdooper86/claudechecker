@@ -13,6 +13,7 @@ class UsageViewModel: ObservableObject {
     @Published var overageSpendLimit: OverageSpendLimit?
     @Published var planLabel: String = "Claude"
     @Published var isNotAuthenticated: Bool = false
+    @Published var isSignedIn: Bool = false
     @Published var triggerLogin: Bool = false
     @Published var showInMenuBar: Bool = true {
         didSet { UserDefaults.standard.set(showInMenuBar, forKey: "show_in_menubar") }
@@ -36,6 +37,21 @@ class UsageViewModel: ObservableObject {
         loadPlaceholderData()
     }
 
+    func signOut() async {
+        let store = WKWebsiteDataStore.default()
+        let types = WKWebsiteDataStore.allWebsiteDataTypes()
+        let records = await store.dataRecords(ofTypes: types)
+        let claudeRecords = records.filter { $0.displayName.contains("claude.ai") }
+        await store.removeData(ofTypes: types, for: claudeRecords)
+        isSignedIn = false
+        isNotAuthenticated = true
+        lastUpdated = nil
+        limits = []
+        extraUsage = nil
+        prepaidCredits = nil
+        overageSpendLimit = nil
+    }
+
     func refresh() async {
         isLoading = true
         errorMessage = nil
@@ -54,6 +70,7 @@ class UsageViewModel: ObservableObject {
             overageSpendLimit = overage
             planLabel = "Pro"
             lastUpdated = Date()
+            isSignedIn = true
 
             for i in limits.indices {
                 let key = limits[i].window.rawValue
