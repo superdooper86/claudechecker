@@ -212,7 +212,7 @@ struct LimitCard: View {
                     AgentIconView(agent: .claude, size: 14)
                     Text("Claude")
                         .font(.system(size: 13, weight: .semibold))
-                    Text("·  \(vm.planLabel)  ·  \(limit.window.label)")
+                    Text("·  \(vm.planLabel)")
                         .font(.system(size: 11))
                         .foregroundColor(.secondary)
                     Spacer()
