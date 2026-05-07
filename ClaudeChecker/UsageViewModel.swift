@@ -310,4 +310,5 @@ extension Notification.Name {
     static let updateDetected = Notification.Name("updateDetected")
     static let limitWarning = Notification.Name("limitWarning")
     static let limitReset = Notification.Name("limitReset")
+    static let openUpdateSheet = Notification.Name("openUpdateSheet")
 }

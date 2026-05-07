@@ -39,7 +39,12 @@ class UpdateNotificationWindowController: NSWindowController {
         sharedLimit?.close()
         let content = UpdateNotificationView(
             version: "", subtitle: subtitle, isUpdate: false,
-            titleText: title, badgeIcon: badgeIcon, badgeColor: badgeColor
+            titleText: title, badgeIcon: badgeIcon, badgeColor: badgeColor,
+            onTap: {
+                sharedLimit?.close()
+                sharedLimit = nil
+                NotificationCenter.default.post(name: .showPopover, object: nil)
+            }
         ) {
             sharedLimit?.close()
             sharedLimit = nil
@@ -53,7 +58,16 @@ class UpdateNotificationWindowController: NSWindowController {
 
     private static func showWindow(version: String, subtitle: String, near statusItem: NSStatusItem?, isUpdate: Bool) {
         shared?.close()
-        let content = UpdateNotificationView(version: version, subtitle: subtitle, isUpdate: isUpdate) {
+        let content = UpdateNotificationView(version: version, subtitle: subtitle, isUpdate: isUpdate,
+            onTap: {
+                shared?.close()
+                shared = nil
+                NotificationCenter.default.post(name: .showPopover, object: nil)
+                if isUpdate {
+                    NotificationCenter.default.post(name: .openUpdateSheet, object: nil)
+                }
+            }
+        ) {
             shared?.close()
             shared = nil
         }
@@ -129,6 +143,7 @@ struct UpdateNotificationView: View {
     var titleText: String? = nil
     var badgeIcon: String? = nil
     var badgeColor: Color? = nil
+    var onTap: (() -> Void)? = nil
     let onDismiss: () -> Void
 
     private var effectiveTitle: String {
@@ -142,30 +157,40 @@ struct UpdateNotificationView: View {
     }
 
     var body: some View {
-        HStack(spacing: 12) {
-            ZStack(alignment: .bottomTrailing) {
-                Image(nsImage: NSImage(named: "AppIcon") ?? NSImage())
-                    .resizable()
-                    .frame(width: 44, height: 44)
-                    .cornerRadius(10)
+        ZStack(alignment: .topTrailing) {
+            Button(action: { onTap?() }) {
+                HStack(spacing: 12) {
+                    ZStack(alignment: .bottomTrailing) {
+                        Image(nsImage: NSImage(named: "AppIcon") ?? NSImage())
+                            .resizable()
+                            .frame(width: 44, height: 44)
+                            .cornerRadius(10)
 
-                Image(systemName: effectiveBadgeIcon)
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(effectiveBadgeColor)
-                    .background(Color(nsColor: .windowBackgroundColor).clipShape(Circle()))
-                    .offset(x: 4, y: 4)
+                        Image(systemName: effectiveBadgeIcon)
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(effectiveBadgeColor)
+                            .background(Color(nsColor: .windowBackgroundColor).clipShape(Circle()))
+                            .offset(x: 4, y: 4)
+                    }
+
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(effectiveTitle)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(.primary)
+                        Text(subtitle)
+                            .font(.system(size: 11))
+                            .foregroundColor(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                    Spacer(minLength: 24)
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 14)
+                .frame(width: 340, alignment: .leading)
+                .contentShape(Rectangle())
             }
-
-            VStack(alignment: .leading, spacing: 3) {
-                Text(effectiveTitle)
-                    .font(.system(size: 13, weight: .semibold))
-                Text(subtitle)
-                    .font(.system(size: 11))
-                    .foregroundColor(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            Spacer(minLength: 8)
+            .buttonStyle(.plain)
 
             Button(action: onDismiss) {
                 Image(systemName: "xmark")
@@ -173,10 +198,8 @@ struct UpdateNotificationView: View {
                     .foregroundColor(.secondary)
             }
             .buttonStyle(.plain)
+            .padding(14)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 14)
-        .frame(width: 340, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 13)
                 .fill(Color(nsColor: .windowBackgroundColor))
