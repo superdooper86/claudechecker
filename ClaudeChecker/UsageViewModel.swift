@@ -14,6 +14,7 @@ class UsageViewModel: ObservableObject {
     @Published var planLabel: String = "Claude"
     @Published var isNotAuthenticated: Bool = false
     @Published var isSignedIn: Bool = false
+    @Published var userEmail: String = ""
     @Published var triggerLogin: Bool = false
     @Published var showInMenuBar: Bool = true {
         didSet { UserDefaults.standard.set(showInMenuBar, forKey: "show_in_menubar") }
@@ -46,6 +47,7 @@ class UsageViewModel: ObservableObject {
         isSignedIn = false
         isNotAuthenticated = true
         lastUpdated = nil
+        userEmail = ""
         limits = []
         extraUsage = nil
         prepaidCredits = nil
@@ -63,7 +65,9 @@ class UsageViewModel: ObservableObject {
             async let usageFetch        = fetchUsage(orgId: orgId)
             async let prepaidFetch      = fetchPrepaidCredits(orgId: orgId)
             async let overageFetch      = fetchOverageSpendLimit(orgId: orgId)
-            let (usage, prepaid, overage) = try await (usageFetch, prepaidFetch, overageFetch)
+            async let emailFetch        = fetchUserEmail()
+            let (usage, prepaid, overage, email) = try await (usageFetch, prepaidFetch, overageFetch, emailFetch)
+            if let email { userEmail = email }
             limits = buildLimits(from: usage)
             extraUsage = usage.extraUsage
             prepaidCredits = prepaid
@@ -119,6 +123,23 @@ class UsageViewModel: ObservableObject {
         guard http.statusCode == 200 else { throw AppError.networkError }
 
         return try JSONDecoder().decode(UsageResponse.self, from: data)
+    }
+
+    private func fetchUserEmail() async throws -> String? {
+        let url = URL(string: "https://claude.ai/api/bootstrap")!
+        var req = URLRequest(url: url)
+        req.setValue("application/json", forHTTPHeaderField: "accept")
+        let cookies = await WKWebsiteDataStore.default().httpCookieStore.allCookies()
+        let claudeCookies = cookies.filter { $0.domain.contains("claude.ai") }
+        if let header = HTTPCookie.requestHeaderFields(with: claudeCookies)["Cookie"] {
+            req.setValue(header, forHTTPHeaderField: "Cookie")
+        }
+        let (data, response) = try await URLSession.shared.data(for: req)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { return nil }
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let account = json["account"] as? [String: Any],
+              let email = account["email_address"] as? String else { return nil }
+        return email
     }
 
     private func fetchPrepaidCredits(orgId: String) async throws -> PrepaidCredits? {

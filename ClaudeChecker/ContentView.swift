@@ -596,13 +596,31 @@ struct SettingsView: View {
                     .font(.system(size: 12, weight: .medium))
                     .foregroundColor(.secondary)
 
-                HStack(spacing: 6) {
-                    Circle()
-                        .fill(vm.isSignedIn ? Color.green : Color.orange)
-                        .frame(width: 7, height: 7)
-                    Text(vm.isSignedIn ? "Signed in to claude.ai" : "Not signed in")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(vm.isSignedIn ? .primary : .orange)
+                if vm.isSignedIn {
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack(spacing: 6) {
+                            Circle()
+                                .fill(Color.green)
+                                .frame(width: 7, height: 7)
+                            Text("Signed in to claude.ai")
+                                .font(.system(size: 13, weight: .semibold))
+                        }
+                        if !vm.userEmail.isEmpty {
+                            Text(vm.userEmail)
+                                .font(.system(size: 11.5))
+                                .foregroundColor(.secondary)
+                                .padding(.leading, 13)
+                        }
+                    }
+                } else {
+                    HStack(spacing: 6) {
+                        Circle()
+                            .fill(Color.orange)
+                            .frame(width: 7, height: 7)
+                        Text("Not signed in")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(.orange)
+                    }
                 }
 
                 Text("Your session is stored locally and persists across restarts.")
