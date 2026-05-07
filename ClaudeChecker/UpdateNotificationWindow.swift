@@ -14,7 +14,7 @@ class UpdateNotificationWindowController: NSWindowController {
 
     // Called when a new update is detected while running
     static func showUpdate(version: String, notes: String, near statusItem: NSStatusItem?) {
-        showWindow(version: version, subtitle: notes.isEmpty ? "Tap to update now." : notes, near: statusItem, isUpdate: true)
+        showWindow(version: version, subtitle: "Tap to view release notes & update now!", near: statusItem, isUpdate: true)
     }
 
     static func showLimitWarning(windowName: String, percent: Int, near statusItem: NSStatusItem?) {
