@@ -1,6 +1,4 @@
-## What's new in v1.0.5
+## What's new in v1.0.6
 
-### Release notes now render correctly
-The update sheet and in-app banner now render markdown formatting in release notes — headers, bold text, and bullet points all display correctly instead of showing raw `##` and `**` characters.
-
-The update notification popup no longer shows the full release notes text; it shows a concise "Tap to update now." prompt instead, keeping it compact.
+### Improved update notification
+The update notification now reads **"Tap to view release notes & update now!"** — making it clear you can read what's changed before installing.
