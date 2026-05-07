@@ -511,11 +511,8 @@ struct ExtraUsageRow: View {
                     .foregroundColor(.secondary)
             }
             VStack(spacing: 4) {
-                ExtraUsageLine(label: "Spent",   value: "\(cur) \(fmt(extra.usedCredits))",    color: color)
-                ExtraUsageLine(label: "Limit",   value: extra.monthlyLimit != nil ? "\(cur) \(fmt(extra.monthlyLimit))" : "Unlimited", color: .secondary)
-                if extra.currentBalance != nil {
-                    ExtraUsageLine(label: "Balance", value: "\(cur) \(fmt(extra.currentBalance))", color: .primary)
-                }
+                ExtraUsageLine(label: "Spent", value: "\(cur) \(fmt(extra.usedCredits))", color: color)
+                ExtraUsageLine(label: "Limit", value: extra.monthlyLimit != nil ? "\(cur) \(fmt(extra.monthlyLimit))" : "Unlimited", color: .secondary)
             }
             if extra.monthlyLimit != nil {
                 ProgressBar(value: pct / 100, color: color)
