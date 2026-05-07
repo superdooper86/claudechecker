@@ -1038,9 +1038,9 @@ struct UpdateBanner: View {
             VStack(alignment: .leading, spacing: 1) {
                 Text("Update available — v\(updater.latestVersion)")
                     .font(.system(size: 12, weight: .semibold))
-                if !updater.releaseNotes.isEmpty {
-                    ReleaseNotesText(text: updater.releaseNotes, font: .system(size: 11))
-                }
+                Text("Tap Update to view what's new & install.")
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
             }
             Spacer()
             Button("Update") { showSheet = true }
