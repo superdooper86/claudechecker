@@ -1,5 +1,5 @@
 {
-  "version": "1.1.2",
+  "version": "1.1.2-beta.1",
   "url": "https://github.com/superdooper86/claudechecker/releases/download/v1.1.2-beta.1/ClaudeChecker.zip",
   "notes": "## What's new in v1.1.2\n\n### Cleaner card headers\nRemoved the redundant \"5h\" / \"7d\" window labels from each card row — the section headers already make it clear which limit is which."
 }
