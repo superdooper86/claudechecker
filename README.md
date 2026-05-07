@@ -147,7 +147,7 @@ ClaudeChecker reads from the following `claude.ai` API endpoints (authenticated 
 
 ## Built by
 
-**James Bone & Claude** — built entirely through conversation with [Claude](https://claude.ai), Anthropic's AI assistant.
+**superdooper86 & Claude**
 
 ---
 
