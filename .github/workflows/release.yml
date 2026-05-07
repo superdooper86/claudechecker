@@ -50,13 +50,12 @@ jobs:
 
       - name: Update version.json
         run: |
-          cat > version.json << JSON
-          {
-            "version": "${{ steps.version.outputs.version }}",
-            "url": "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/ClaudeChecker.zip",
-            "notes": "$(cat RELEASE_NOTES.md 2>/dev/null || echo 'Release ${{ steps.version.outputs.version }}')"
-          }
-          JSON
+          notes=$(cat RELEASE_NOTES.md 2>/dev/null || echo "Release ${{ steps.version.outputs.version }}")
+          jq -n \
+            --arg version "${{ steps.version.outputs.version }}" \
+            --arg url "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/ClaudeChecker.zip" \
+            --arg notes "$notes" \
+            '{version: $version, url: $url, notes: $notes}' > version.json
 
       - name: Update Homebrew cask
         run: |

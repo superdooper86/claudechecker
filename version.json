@@ -1,13 +1,5 @@
 {
   "version": "1.0.4",
   "url": "https://github.com/superdooper86/claudechecker/releases/download/v1.0.4/ClaudeChecker.zip",
-  "notes": "## What's new in v1.0.4
-
-### Clickable notifications
-Notifications are now interactive — tap to act, not just read:
-
-- **Limit warnings & resets** (80%, 95%, reset) — tapping the notification opens the main ClaudeChecker window so you can see your current usage at a glance
-- **Update available** — tapping the notification opens the main window with the update sheet already showing, so you can install in one click
-
-Previously notifications were display-only and required manually clicking the menubar icon to take action. This removes that friction."
+  "notes": "## What's new in v1.0.4\n\n### Clickable notifications\nNotifications are now interactive — tap to act, not just read:\n\n- **Limit warnings & resets** (80%, 95%, reset) — tapping the notification opens the main ClaudeChecker window so you can see your current usage at a glance\n- **Update available** — tapping the notification opens the main window with the update sheet already showing, so you can install in one click\n\nPreviously notifications were display-only and required manually clicking the menubar icon to take action. This removes that friction."
 }
