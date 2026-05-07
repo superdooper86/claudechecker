@@ -47,13 +47,29 @@ struct ContentView: View {
                                 EmptyStateView()
                                     .padding(.vertical, 40)
                             } else {
-                                VStack(spacing: 1) {
+                                VStack(spacing: 8) {
                                     ForEach(vm.limits) { limit in
-                                        LimitCard(limit: limit)
+                                        VStack(spacing: 0) {
+                                            HStack {
+                                                Text(limit.window == .fiveHour ? "5hr Limit" : "7 Day Limit")
+                                                    .font(.system(size: 11, weight: .semibold))
+                                                    .foregroundColor(.secondary)
+                                                    .textCase(.uppercase)
+                                                Spacer()
+                                            }
+                                            .padding(.horizontal, 16)
+                                            .padding(.top, 10)
+                                            .padding(.bottom, 4)
+
+                                            LimitCard(limit: limit)
+                                                .background(Color(nsColor: .controlBackgroundColor))
+                                                .cornerRadius(8)
+                                                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.primary.opacity(0.08), lineWidth: 0.5))
+                                                .padding(.horizontal, 8)
+                                        }
                                     }
                                 }
-                                .background(Color.primary.opacity(0.05))
-                                .padding(.vertical, 1)
+                                .padding(.bottom, 4)
 
                                 // Extra credits row
                                 if let extra = vm.extraUsage, extra.isEnabled {

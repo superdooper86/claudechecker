@@ -24,21 +24,27 @@ struct LoginWebView: NSViewRepresentable {
 
     class Coordinator: NSObject, WKNavigationDelegate {
         let onAuthenticated: () -> Void
+        var didAuthenticate = false
 
         init(onAuthenticated: @escaping () -> Void) {
             self.onAuthenticated = onAuthenticated
         }
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+            guard !didAuthenticate else { return }
+            // Don't fire on the login/auth pages themselves
+            if let url = webView.url?.absoluteString,
+               url.contains("/login") || url.contains("/auth") { return }
+
             WKWebsiteDataStore.default().httpCookieStore.getAllCookies { cookies in
                 let hasSession = cookies.contains {
                     $0.domain.contains("claude.ai") &&
                     ($0.name == "sessionKey" || $0.name == "__Secure-next-auth.session-token")
                 }
-                if hasSession {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                        self.onAuthenticated()
-                    }
+                guard hasSession, !self.didAuthenticate else { return }
+                self.didAuthenticate = true
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    self.onAuthenticated()
                 }
             }
         }
@@ -58,9 +64,18 @@ struct LoginSheetView: View {
                 Text(authenticated ? "✓ Signed in — loading data…" : "Sign in to Claude")
                     .font(.system(size: 13, weight: .semibold))
                 Spacer()
-                Button("Cancel") { isPresented = false }
-                    .buttonStyle(.bordered)
+                if authenticated {
+                    Button("Done") {
+                        isPresented = false
+                        onDone()
+                    }
+                    .buttonStyle(.borderedProminent)
                     .controlSize(.small)
+                } else {
+                    Button("Cancel") { isPresented = false }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                }
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
