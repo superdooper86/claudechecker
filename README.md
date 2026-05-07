@@ -23,6 +23,23 @@ No API key required. It reads directly from your `claude.ai` session using a bui
 
 ---
 
+## Screenshots
+
+<div align="center">
+
+<img src="screenshots/main.png" width="320" alt="Main window" />
+<img src="screenshots/settings.png" width="320" alt="Settings" />
+
+<img src="screenshots/update-banner.png" width="320" alt="Update available banner" />
+<img src="screenshots/notification.png" width="320" alt="Update notification" />
+
+<img src="screenshots/menubar-percent.png" width="120" alt="Menubar percentage display" />
+<img src="screenshots/menubar-icon.png" width="40" alt="Menubar icon" />
+
+</div>
+
+---
+
 ## Features
 
 ### 📊 Usage Monitoring
