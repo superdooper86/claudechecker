@@ -1,5 +1,5 @@
 {
-  "version": "1.1.0",
-  "url": "https://github.com/superdooper86/claudechecker/releases/download/v1.1.0/ClaudeChecker.zip",
-  "notes": "## What's new in v1.1.0\n\n### Clickable notifications\nTapping a limit warning or reset notification opens the main window. Tapping an update notification opens the update sheet directly — no need to manually click the menubar icon.\n\n### Update indicator in menubar\nWhen an update is available, the menubar shows **↑ Update** alongside your usage percentages so you know at a glance without opening the app.\n\n### Release notes render correctly\nThe update banner and update sheet now render markdown formatting — headers, **bold text**, and bullet points display properly.\n\n### Update notification improved\nThe update popup now reads **\"Tap to view release notes & update now!\"** making it clear you can read what changed before installing.\n\n### Main window always opens on click\nClosing the app while Settings was open would cause the next click to reopen straight to Settings. The app now always returns to the main window."
+  "version": "1.1.1",
+  "url": "https://github.com/superdooper86/claudechecker/releases/download/v1.1.1/ClaudeChecker.zip",
+  "notes": "## What's new in v1.1.1\n\n### Clearer limit labels\nThe 5hr and 7 Day usage cards now have clear section headers so it's immediately obvious which limit is which.\n\n### Login window fix\nThe sign-in sheet now reliably closes after a successful login. A **Done** button also appears as a fallback once authentication is detected — no more being stuck with only a Cancel button."
 }
