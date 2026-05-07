@@ -4,10 +4,10 @@ on:
   push:
     tags:
       - 'v*'
-      - '!v*-*'
 
 jobs:
   release:
+    if: ${{ !contains(github.ref_name, '-') }}
     runs-on: macos-latest
     permissions:
       contents: write
@@ -67,14 +67,20 @@ jobs:
 
       - name: Update README badge
         run: |
-          sed -i '' \
-            's/version-[0-9][^-]*-orange/version-${{ steps.version.outputs.version }}-orange/' \
-            README.md
-          # Remove beta badge now that stable is released
-          sed -i '' '/<!-- BETA_BADGE -->/d' README.md
-          # Re-add empty marker so future betas can target it
-          sed -i '' '/license-MIT-blue/a\
-<!-- BETA_BADGE -->' README.md
+          python3 -c "
+content = open('README.md').read()
+import re
+content = re.sub(r'version-[0-9][^-]*-orange', 'version-${{ steps.version.outputs.version }}-orange', content)
+lines = content.splitlines(keepends=True)
+out = []
+for line in lines:
+    if '<!-- BETA_BADGE -->' in line:
+        continue
+    out.append(line)
+    if 'license-MIT-blue' in line:
+        out.append('<!-- BETA_BADGE -->\n')
+open('README.md', 'w').writelines(out)
+"
 
       - name: Commit version.json and README
         run: |
