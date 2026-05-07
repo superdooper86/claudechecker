@@ -80,14 +80,17 @@ No API key required. It reads directly from your `claude.ai` session using a bui
 - No API key, no credentials stored beyond the macOS WKWebsiteDataStore
 - Re-authenticate any time from Settings → Sign in again
 
-### 🔔 Update System
+### 🔔 Notifications
+- **Limit warnings** — floating panel appears near the menubar icon when a window hits **80%** (orange) or **95%** (red)
+- **Limit reset** — notified when a quota window resets and usage drops back to low
+- **Update available** — notified when a new version is detected
+- **Post-update confirmation** — compact toast confirms the new version on first launch
+- All notifications auto-dismiss after 8 seconds, or can be closed manually
+
+### 🔄 Auto Update
 - **Automatic update detection** — checks for new versions on launch and on each refresh cycle
-- Floating **notification popup** appears near the menubar icon when a new version is found
 - One-click install: downloads, unpacks, replaces, and **relaunches automatically**
-- **Post-update success notification** — compact toast confirms the new version on first launch
 - **Beta channel** — opt in to early access builds via Settings toggle
-  - Beta badge shown even when toggle is off, as a teaser
-  - Install gated behind the toggle
 
 ### 📋 Session Diary
 - Sparkline chart showing quota burn history over the session
