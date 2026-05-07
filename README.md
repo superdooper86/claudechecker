@@ -8,7 +8,7 @@
 
 [![macOS](https://img.shields.io/badge/macOS-13.0+-000000?style=flat&logo=apple&logoColor=white)](https://www.apple.com/macos/)
 [![Swift](https://img.shields.io/badge/Swift-5.9-F05138?style=flat&logo=swift&logoColor=white)](https://swift.org)
-[![Version](https://img.shields.io/badge/version-2.0.10-orange?style=flat)](https://github.com/superdooper86/claudechecker/releases)
+[![Version](https://img.shields.io/badge/version-3.0.0-orange?style=flat)](https://github.com/superdooper86/claudechecker/releases)
 [![License](https://img.shields.io/badge/license-MIT-blue?style=flat)](LICENSE)
 
 </div>
@@ -166,7 +166,7 @@ ClaudeChecker reads from the following `claude.ai` API endpoints (authenticated 
 
 ## Built by
 
-**superdooper86 & Claude**
+**superdooper86 & claude**
 
 ---
 

@@ -784,7 +784,7 @@ struct SettingsView: View {
                                 .cornerRadius(4)
                         }
                     }
-                    Text("Built by James Bone & Claude")
+                    Text("Built by superdooper86 & claude")
                         .font(.system(size: 11))
                         .foregroundColor(.secondary)
                 }

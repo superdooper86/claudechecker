@@ -1,5 +1,5 @@
 {
-  "version": "2.0.10",
-  "url": "https://github.com/superdooper86/claudechecker/releases/download/v2.0.10/ClaudeChecker.zip",
-  "notes": "Limit notifications: warns at 80% and 95% usage, and notifies when a limit resets."
+  "version": "3.0.0",
+  "url": "https://github.com/superdooper86/claudechecker/releases/download/v3.0.0/ClaudeChecker.zip",
+  "notes": "Limit notifications for 80% and 95% usage, and on quota reset."
 }
