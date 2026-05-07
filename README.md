@@ -120,7 +120,13 @@ No API key required. It reads directly from your `claude.ai` session using a bui
 
 ## Installation
 
-### Download (recommended)
+### Homebrew (easiest)
+```bash
+brew tap superdooper86/tap
+brew install --cask claudechecker
+```
+
+### Download
 1. Go to [Releases](https://github.com/superdooper86/claudechecker/releases)
 2. Download `ClaudeChecker.zip` from the latest release
 3. Unzip and drag `ClaudeChecker.app` to `/Applications`
