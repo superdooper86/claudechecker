@@ -504,12 +504,22 @@ struct ExtraUsageRow: View {
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(.secondary)
                 Spacer()
-                Text("\(extra.currency ?? "") \(String(format: "%.2f", (extra.usedCredits ?? 0) / 100)) / \(String(format: "%.2f", (extra.monthlyLimit ?? 0) / 100))")
-                    .font(.system(size: 11.5, weight: .medium).monospacedDigit())
-                    .foregroundColor(color)
+                Group {
+                    let spent = String(format: "%.2f", (extra.usedCredits ?? 0) / 100)
+                    let currency = extra.currency ?? ""
+                    if let limit = extra.monthlyLimit {
+                        Text("\(currency) \(spent) / \(String(format: "%.2f", limit / 100))")
+                    } else {
+                        Text("\(currency) \(spent) / Unlimited")
+                    }
+                }
+                .font(.system(size: 11.5, weight: .medium).monospacedDigit())
+                .foregroundColor(color)
             }
-            ProgressBar(value: pct / 100, color: color)
-                .frame(height: 4)
+            if extra.monthlyLimit != nil {
+                ProgressBar(value: pct / 100, color: color)
+                    .frame(height: 4)
+            }
         }
         .padding(12)
         .background(Color.primary.opacity(0.04))
