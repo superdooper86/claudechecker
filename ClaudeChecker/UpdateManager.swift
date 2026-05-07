@@ -46,6 +46,8 @@ class UpdateManager: ObservableObject {
     @Published var updateComplete = false
     @Published var justUpdated = false
 
+    private var notifiedVersion: String = ""
+
     @Published var betaChannel: Bool = false {
         didSet {
             UserDefaults.standard.set(betaChannel, forKey: "beta_channel")
@@ -70,14 +72,13 @@ class UpdateManager: ObservableObject {
         if let stable = await stableResult {
             print("[UpdateManager] Stable remote=\(stable.version), isNewer=\(isNewer(stable.version, than: currentVersion))")
             if isNewer(stable.version, than: currentVersion) {
-                let wasAvailable = updateAvailable
                 latestVersion = stable.version
                 releaseNotes = stable.notes ?? ""
                 downloadURL = stable.url
                 updateAvailable = true
                 print("[UpdateManager] updateAvailable set to true")
-                // Only notify once — when first detected
-                if !wasAvailable {
+                if notifiedVersion != stable.version {
+                    notifiedVersion = stable.version
                     NotificationCenter.default.post(name: .updateDetected, object: stable.version)
                 }
             } else {
@@ -94,12 +95,12 @@ class UpdateManager: ObservableObject {
                 latestBetaVersion = beta.version
                 betaAvailable = true
                 if betaChannel && isNewer(beta.version, than: latestVersion) {
-                    let wasAvailable = updateAvailable
                     latestVersion = beta.version
                     releaseNotes = beta.notes ?? ""
                     downloadURL = beta.url
                     updateAvailable = true
-                    if !wasAvailable {
+                    if notifiedVersion != beta.version {
+                        notifiedVersion = beta.version
                         NotificationCenter.default.post(name: .updateDetected, object: beta.version)
                     }
                 }
