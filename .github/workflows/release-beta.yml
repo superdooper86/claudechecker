@@ -48,8 +48,10 @@ jobs:
       - name: Update version-beta.json
         run: |
           notes=$(cat RELEASE_NOTES.md 2>/dev/null || echo "Beta release ${{ steps.version.outputs.version }}")
+          base_version="${{ steps.version.outputs.version }}"
+          base_version="${base_version%%-*}"
           jq -n \
-            --arg version "${{ steps.version.outputs.version }}" \
+            --arg version "$base_version" \
             --arg url "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/ClaudeChecker.zip" \
             --arg notes "$notes" \
             '{version: $version, url: $url, notes: $notes}' > version-beta.json
