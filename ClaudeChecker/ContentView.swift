@@ -57,7 +57,7 @@ struct ContentView: View {
 
                                 // Extra credits row
                                 if let extra = vm.extraUsage, extra.isEnabled {
-                                    ExtraUsageRow(extra: extra)
+                                    ExtraUsageRow(extra: extra, prepaid: vm.prepaidCredits, overage: vm.overageSpendLimit)
                                         .padding(.horizontal, 16)
                                         .padding(.top, 12)
                                 }
@@ -490,10 +490,20 @@ struct FooterBar: View {
 
 struct ExtraUsageRow: View {
     let extra: ExtraUsage
+    let prepaid: PrepaidCredits?
+    let overage: OverageSpendLimit?
 
-    var pct: Double { min(100, max(0, extra.utilization ?? 0)) }
+    var cur: String { overage?.currency ?? extra.currency ?? "" }
+
+    var spentCents: Double? { overage?.usedCredits }
+    var limitCents: Double? { overage?.monthlyCreditLimit }
+    var balanceCents: Double? { prepaid?.amount }
+
+    var pct: Double {
+        guard let s = spentCents, let l = limitCents, l > 0 else { return 0 }
+        return min(100, max(0, (s / l) * 100))
+    }
     var color: Color { pct > 80 ? .red : pct > 50 ? .orange : .green }
-    var cur: String { extra.currency ?? "" }
 
     func fmt(_ cents: Double?) -> String {
         guard let cents else { return "—" }
@@ -511,10 +521,11 @@ struct ExtraUsageRow: View {
                     .foregroundColor(.secondary)
             }
             VStack(spacing: 4) {
-                ExtraUsageLine(label: "Spent", value: "\(cur) \(fmt(extra.usedCredits))", color: color)
-                ExtraUsageLine(label: "Limit", value: extra.monthlyLimit != nil ? "\(cur) \(fmt(extra.monthlyLimit))" : "Unlimited", color: .secondary)
+                ExtraUsageLine(label: "Spent",   value: "\(cur) \(fmt(spentCents))",   color: color)
+                ExtraUsageLine(label: "Limit",   value: limitCents != nil ? "\(cur) \(fmt(limitCents))" : "Unlimited", color: .secondary)
+                ExtraUsageLine(label: "Balance", value: "\(cur) \(fmt(balanceCents))", color: .primary)
             }
-            if extra.monthlyLimit != nil {
+            if limitCents != nil {
                 ProgressBar(value: pct / 100, color: color)
                     .frame(height: 4)
             }

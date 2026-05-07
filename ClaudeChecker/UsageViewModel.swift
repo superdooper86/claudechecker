@@ -9,6 +9,8 @@ class UsageViewModel: ObservableObject {
     @Published var lastUpdated: Date?
     @Published var errorMessage: String?
     @Published var extraUsage: ExtraUsage?
+    @Published var prepaidCredits: PrepaidCredits?
+    @Published var overageSpendLimit: OverageSpendLimit?
     @Published var planLabel: String = "Claude"
     @Published var isNotAuthenticated: Bool = false
     @Published var triggerLogin: Bool = false
@@ -42,9 +44,14 @@ class UsageViewModel: ObservableObject {
 
         do {
             let orgId = cachedOrgId!
-            let usage = try await fetchUsage(orgId: orgId)
+            async let usageFetch        = fetchUsage(orgId: orgId)
+            async let prepaidFetch      = fetchPrepaidCredits(orgId: orgId)
+            async let overageFetch      = fetchOverageSpendLimit(orgId: orgId)
+            let (usage, prepaid, overage) = try await (usageFetch, prepaidFetch, overageFetch)
             limits = buildLimits(from: usage)
             extraUsage = usage.extraUsage
+            prepaidCredits = prepaid
+            overageSpendLimit = overage
             planLabel = "Pro"
             lastUpdated = Date()
 
@@ -95,6 +102,34 @@ class UsageViewModel: ObservableObject {
         guard http.statusCode == 200 else { throw AppError.networkError }
 
         return try JSONDecoder().decode(UsageResponse.self, from: data)
+    }
+
+    private func fetchPrepaidCredits(orgId: String) async throws -> PrepaidCredits? {
+        let url = URL(string: "https://claude.ai/api/organizations/\(orgId)/prepaid/credits")!
+        var req = URLRequest(url: url)
+        req.setValue("application/json", forHTTPHeaderField: "accept")
+        let cookies = await WKWebsiteDataStore.default().httpCookieStore.allCookies()
+        let claudeCookies = cookies.filter { $0.domain.contains("claude.ai") }
+        if let header = HTTPCookie.requestHeaderFields(with: claudeCookies)["Cookie"] {
+            req.setValue(header, forHTTPHeaderField: "Cookie")
+        }
+        let (data, response) = try await URLSession.shared.data(for: req)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { return nil }
+        return try? JSONDecoder().decode(PrepaidCredits.self, from: data)
+    }
+
+    private func fetchOverageSpendLimit(orgId: String) async throws -> OverageSpendLimit? {
+        let url = URL(string: "https://claude.ai/api/organizations/\(orgId)/overage_spend_limit")!
+        var req = URLRequest(url: url)
+        req.setValue("application/json", forHTTPHeaderField: "accept")
+        let cookies = await WKWebsiteDataStore.default().httpCookieStore.allCookies()
+        let claudeCookies = cookies.filter { $0.domain.contains("claude.ai") }
+        if let header = HTTPCookie.requestHeaderFields(with: claudeCookies)["Cookie"] {
+            req.setValue(header, forHTTPHeaderField: "Cookie")
+        }
+        let (data, response) = try await URLSession.shared.data(for: req)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { return nil }
+        return try? JSONDecoder().decode(OverageSpendLimit.self, from: data)
     }
 
     // MARK: - Build limits
