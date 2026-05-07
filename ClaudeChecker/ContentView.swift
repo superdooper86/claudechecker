@@ -977,6 +977,36 @@ struct UpdateSuccessBanner: View {
     }
 }
 
+// MARK: - Markdown notes renderer
+
+struct ReleaseNotesText: View {
+    let text: String
+    var font: Font = .system(size: 12)
+
+    var body: some View {
+        let processed = text
+            .split(separator: "\n", omittingEmptySubsequences: false)
+            .map { line -> String in
+                let s = String(line)
+                if s.hasPrefix("### ") { return "**\(s.dropFirst(4))**" }
+                if s.hasPrefix("## ")  { return "**\(s.dropFirst(3))**" }
+                if s.hasPrefix("# ")   { return "**\(s.dropFirst(2))**" }
+                if s.hasPrefix("- ")   { return "• \(s.dropFirst(2))" }
+                return s
+            }
+            .joined(separator: "\n")
+
+        if let attr = try? AttributedString(markdown: processed,
+               options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)) {
+            Text(attr).font(font).foregroundColor(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        } else {
+            Text(text).font(font).foregroundColor(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+}
+
 // MARK: - Update Banner
 
 struct UpdateBanner: View {
@@ -992,10 +1022,7 @@ struct UpdateBanner: View {
                 Text("Update available — v\(updater.latestVersion)")
                     .font(.system(size: 12, weight: .semibold))
                 if !updater.releaseNotes.isEmpty {
-                    Text(updater.releaseNotes)
-                        .font(.system(size: 11))
-                        .foregroundColor(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
+                    ReleaseNotesText(text: updater.releaseNotes, font: .system(size: 11))
                 }
             }
             Spacer()
@@ -1061,9 +1088,7 @@ struct UpdateSheet: View {
                                 .foregroundColor(.blue)
                         }
                         if !updater.releaseNotes.isEmpty {
-                            Text(updater.releaseNotes)
-                                .font(.system(size: 12))
-                                .foregroundColor(.secondary)
+                            ReleaseNotesText(text: updater.releaseNotes)
                         }
                     }
                     Spacer()
