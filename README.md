@@ -106,26 +106,6 @@ Then in Xcode: set your Team under Signing & Capabilities, then **⌘R** to run.
 
 ---
 
-## Hosting Your Own Updates
-
-ClaudeChecker checks for updates from a `version.json` file in this repo. To ship a new version:
-
-1. Build and export `ClaudeChecker.app`, zip it
-2. Create a GitHub release tagged `vX.X` and upload the zip
-3. Update `version.json` in the repo root:
-
-```json
-{
-  "version": "1.5",
-  "url": "https://github.com/superdooper86/claudechecker/releases/download/v1.5/ClaudeChecker.zip",
-  "notes": "What changed in this version"
-}
-```
-
-For beta builds, create a matching `version-beta.json` with the same format.
-
----
-
 ## Data Sources
 
 ClaudeChecker reads from the following `claude.ai` API endpoints (authenticated via your session):
