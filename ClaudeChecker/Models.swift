@@ -31,6 +31,12 @@ enum WindowType: String {
     case fiveHour = "5h"
     case sevenDay = "7d"
     var label: String { rawValue }
+    var displayName: String {
+        switch self {
+        case .fiveHour: return "5-hour"
+        case .sevenDay: return "7-day"
+        }
+    }
 }
 
 enum ProjectedHit {

@@ -1,5 +1,5 @@
 {
-  "version": "2.0.8",
-  "url": "https://github.com/superdooper86/claudechecker/releases/download/v2.0.8/ClaudeChecker.zip",
-  "notes": "Updated data sources list in settings."
+  "version": "2.0.9",
+  "url": "https://github.com/superdooper86/claudechecker/releases/download/v2.0.9/ClaudeChecker.zip",
+  "notes": "Added limit notifications: warns at 80% and 95% usage, and notifies when a limit resets."
 }

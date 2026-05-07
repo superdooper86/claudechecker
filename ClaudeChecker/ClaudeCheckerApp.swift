@@ -1,6 +1,7 @@
 import SwiftUI
 import WebKit
 import Combine
+import UserNotifications
 
 @main
 struct ClaudeCheckerApp: App {
@@ -11,7 +12,7 @@ struct ClaudeCheckerApp: App {
 }
 
 @MainActor
-class AppDelegate: NSObject, NSApplicationDelegate {
+class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
     var statusItem: NSStatusItem?
     var popover: NSPopover?
     var usageViewModel = UsageViewModel()
@@ -22,6 +23,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
+
+        let center = UNUserNotificationCenter.current()
+        center.delegate = self
+        center.requestAuthorization(options: [.alert, .sound]) { _, _ in }
 
         // Hidden WKWebView to prime the shared cookie store
         let config = WKWebViewConfiguration()
@@ -204,5 +209,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         refreshTimer?.invalidate()
+    }
+
+    func userNotificationCenter(_ center: UNUserNotificationCenter,
+                                willPresent notification: UNNotification,
+                                withCompletionHandler handler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        handler([.banner, .sound])
     }
 }
