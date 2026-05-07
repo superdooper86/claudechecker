@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="ClaudeChecker/ClaudeChecker/Assets.xcassets/AppIcon.appiconset/icon_128@2x.png" width="128" height="128" alt="ClaudeChecker icon" />
+<img src="https://raw.githubusercontent.com/superdooper86/claudechecker/main/ClaudeChecker/Assets.xcassets/AppIcon.appiconset/icon_128@2x.png" width="128" height="128" alt="ClaudeChecker icon" />
 
 # ClaudeChecker
 
