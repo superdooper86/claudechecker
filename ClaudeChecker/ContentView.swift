@@ -493,6 +493,12 @@ struct ExtraUsageRow: View {
 
     var pct: Double { min(100, max(0, extra.utilization ?? 0)) }
     var color: Color { pct > 80 ? .red : pct > 50 ? .orange : .green }
+    var cur: String { extra.currency ?? "" }
+
+    func fmt(_ cents: Double?) -> String {
+        guard let cents else { return "—" }
+        return String(format: "%.2f", cents / 100)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -503,18 +509,13 @@ struct ExtraUsageRow: View {
                 Text("Extra Usage Credits")
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(.secondary)
-                Spacer()
-                Group {
-                    let spent = String(format: "%.2f", (extra.usedCredits ?? 0) / 100)
-                    let currency = extra.currency ?? ""
-                    if let limit = extra.monthlyLimit {
-                        Text("\(currency) \(spent) / \(String(format: "%.2f", limit / 100))")
-                    } else {
-                        Text("\(currency) \(spent) / Unlimited")
-                    }
+            }
+            VStack(spacing: 4) {
+                ExtraUsageLine(label: "Spent",   value: "\(cur) \(fmt(extra.usedCredits))",    color: color)
+                ExtraUsageLine(label: "Limit",   value: extra.monthlyLimit != nil ? "\(cur) \(fmt(extra.monthlyLimit))" : "Unlimited", color: .secondary)
+                if extra.currentBalance != nil {
+                    ExtraUsageLine(label: "Balance", value: "\(cur) \(fmt(extra.currentBalance))", color: .primary)
                 }
-                .font(.system(size: 11.5, weight: .medium).monospacedDigit())
-                .foregroundColor(color)
             }
             if extra.monthlyLimit != nil {
                 ProgressBar(value: pct / 100, color: color)
@@ -525,6 +526,23 @@ struct ExtraUsageRow: View {
         .background(Color.primary.opacity(0.04))
         .cornerRadius(8)
         .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.primary.opacity(0.08), lineWidth: 0.5))
+    }
+}
+
+struct ExtraUsageLine: View {
+    let label: String
+    let value: String
+    let color: Color
+    var body: some View {
+        HStack {
+            Text(label)
+                .font(.system(size: 11))
+                .foregroundColor(.secondary)
+            Spacer()
+            Text(value)
+                .font(.system(size: 11.5, weight: .medium).monospacedDigit())
+                .foregroundColor(color)
+        }
     }
 }
 

@@ -85,22 +85,28 @@ struct ExtraUsage: Codable {
     let isEnabled: Bool
     let monthlyLimit: Double?
     let usedCredits: Double?
+    let currentBalance: Double?
     let utilization: Double?
     let currency: String?
+    let resetsAt: String?
     enum CodingKeys: String, CodingKey {
         case isEnabled = "is_enabled"
         case monthlyLimit = "monthly_limit"
         case usedCredits = "used_credits"
+        case currentBalance = "current_balance"
         case utilization
         case currency
+        case resetsAt = "resets_at"
     }
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        isEnabled    = (try? c.decodeIfPresent(Bool.self,   forKey: .isEnabled)) ?? false
-        monthlyLimit = try? c.decodeIfPresent(Double.self,  forKey: .monthlyLimit)
-        usedCredits  = try? c.decodeIfPresent(Double.self,  forKey: .usedCredits)
-        utilization  = try? c.decodeIfPresent(Double.self,  forKey: .utilization)
-        currency     = try? c.decodeIfPresent(String.self,  forKey: .currency)
+        isEnabled      = (try? c.decodeIfPresent(Bool.self,   forKey: .isEnabled)) ?? false
+        monthlyLimit   = try? c.decodeIfPresent(Double.self,  forKey: .monthlyLimit)
+        usedCredits    = try? c.decodeIfPresent(Double.self,  forKey: .usedCredits)
+        currentBalance = try? c.decodeIfPresent(Double.self,  forKey: .currentBalance)
+        utilization    = try? c.decodeIfPresent(Double.self,  forKey: .utilization)
+        currency       = try? c.decodeIfPresent(String.self,  forKey: .currency)
+        resetsAt       = try? c.decodeIfPresent(String.self,  forKey: .resetsAt)
     }
 }
 
