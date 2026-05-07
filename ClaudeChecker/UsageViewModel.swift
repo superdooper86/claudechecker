@@ -1,6 +1,5 @@
 import SwiftUI
 import WebKit
-import UserNotifications
 
 @MainActor
 class UsageViewModel: ObservableObject {
@@ -241,7 +240,6 @@ class UsageViewModel: ObservableObject {
     // MARK: - Limit notifications
 
     private func checkLimitNotifications(for limits: [AgentLimit]) {
-        let center = UNUserNotificationCenter.current()
         let thresholds = [80, 95]
 
         for limit in limits {
@@ -255,26 +253,21 @@ class UsageViewModel: ObservableObject {
                 let threshold = Double(t)
                 guard curr >= threshold, prev ?? threshold < threshold, !fired.contains(t) else { continue }
                 fired.insert(t)
-                let content = UNMutableNotificationContent()
-                content.title = "Claude \(limit.window.displayName) limit"
-                content.body = t == 95
-                    ? "\(Int(curr.rounded()))% used — almost at your limit"
-                    : "\(Int(curr.rounded()))% used — approaching your limit"
-                content.sound = .default
-                center.add(UNNotificationRequest(identifier: "cc_limit_\(key)_\(t)", content: content, trigger: nil))
+                NotificationCenter.default.post(
+                    name: .limitWarning,
+                    object: nil,
+                    userInfo: ["windowName": limit.window.displayName, "percent": t]
+                )
             }
 
             // Reset detection: was high, now low
             if let prev, prev > 50, curr < 20 {
                 fired.removeAll()
-                let content = UNMutableNotificationContent()
-                content.title = "Claude \(limit.window.displayName) limit reset"
-                content.body = "Your \(limit.window.displayName) quota has been reset"
-                content.sound = .default
-                center.add(UNNotificationRequest(
-                    identifier: "cc_reset_\(key)_\(Int(Date().timeIntervalSince1970))",
-                    content: content, trigger: nil
-                ))
+                NotificationCenter.default.post(
+                    name: .limitReset,
+                    object: nil,
+                    userInfo: ["windowName": limit.window.displayName]
+                )
             }
 
             firedThresholds[key] = fired
@@ -315,4 +308,6 @@ extension Notification.Name {
     static let closePopover = Notification.Name("closePopover")
     static let showPopover = Notification.Name("showPopover")
     static let updateDetected = Notification.Name("updateDetected")
+    static let limitWarning = Notification.Name("limitWarning")
+    static let limitReset = Notification.Name("limitReset")
 }
