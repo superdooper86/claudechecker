@@ -1032,12 +1032,6 @@ struct UpdateBanner: View {
             Button("Update") { showSheet = true }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.small)
-            Button { updater.updateAvailable = false } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 10, weight: .medium))
-                    .foregroundColor(.secondary)
-            }
-            .buttonStyle(.plain)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)

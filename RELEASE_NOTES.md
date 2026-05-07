@@ -1,4 +1,7 @@
-## What's new in v1.0.10
+## What's new in v1.0.11
 
-### Main window always opens on click
-Closing the app while Settings was open would cause the next click to reopen straight to Settings. The app now always returns to the main window when reopened.
+### Update indicator in menubar
+When an update is available, the menubar now shows **↑ Update** alongside your usage percentages — so you can see there's an update without opening the app.
+
+### Update banner can't be dismissed
+The × close button has been removed from the update banner. The banner stays visible until you install the update.

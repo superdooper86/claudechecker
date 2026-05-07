@@ -60,6 +60,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             .sink { [weak self] _ in self?.updateStatusItem() }
             .store(in: &cancellables)
 
+        updateManager.$updateAvailable
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.updateStatusItem() }
+            .store(in: &cancellables)
+
         // Refresh timer
         scheduleTimer(interval: usageViewModel.refreshInterval)
 
@@ -166,7 +171,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             let sdStr = sd.map { "\(Int($0.usedPercent.rounded()))%" } ?? "—"
             button.image = nil
             button.attributedTitle = NSAttributedString(string: "")
-            button.title = "◔ \(fhStr)  \(sdStr)"
+            let updatePrefix = updateManager.updateAvailable ? "↑ Update  " : "◔ "
+            button.title = "\(updatePrefix)\(fhStr)  \(sdStr)"
+            button.font = NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .medium)
+        } else if updateManager.updateAvailable {
+            button.image = nil
+            button.attributedTitle = NSAttributedString(string: "")
+            button.title = "↑ Update"
             button.font = NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .medium)
         } else {
             button.title = ""
