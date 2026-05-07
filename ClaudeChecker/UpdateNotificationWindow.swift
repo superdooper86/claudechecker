@@ -21,14 +21,14 @@ class UpdateNotificationWindowController: NSWindowController {
         let icon   = percent >= 95 ? "exclamationmark.circle.fill" : "exclamationmark.triangle.fill"
         let color  = percent >= 95 ? Color.red : Color.orange
         let title  = "Claude \(windowName) limit at \(percent)%"
-        let body   = percent >= 95 ? "Almost out of quota — usage is critically high." : "Approaching your quota limit."
+        let body   = percent >= 95 ? "Almost out of quota." : "Approaching your limit."
         showLimitWindow(title: title, subtitle: body, badgeIcon: icon, badgeColor: color, near: statusItem)
     }
 
     static func showLimitReset(windowName: String, near statusItem: NSStatusItem?) {
         showLimitWindow(
             title: "Claude \(windowName) limit reset",
-            subtitle: "Your quota has been reset — you're good to go.",
+            subtitle: "Your quota has been reset.",
             badgeIcon: "arrow.clockwise.circle.fill",
             badgeColor: .green,
             near: statusItem
@@ -65,9 +65,13 @@ class UpdateNotificationWindowController: NSWindowController {
     }
 
     private static func makeWindow<V: View>(content: V) -> UpdateNotificationWindowController {
-        let hosting = NSHostingController(rootView: content)
+        let hostingView = NSHostingView(rootView: content)
+        hostingView.frame = NSRect(x: 0, y: 0, width: 340, height: 1000)
+        let height = max(80, hostingView.fittingSize.height)
+        let size = NSSize(width: 340, height: height)
+
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 340, height: 80),
+            contentRect: NSRect(origin: .zero, size: size),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
@@ -76,7 +80,8 @@ class UpdateNotificationWindowController: NSWindowController {
         window.backgroundColor = .clear
         window.level = .statusBar
         window.hasShadow = false
-        window.contentViewController = hosting
+        hostingView.frame = NSRect(origin: .zero, size: size)
+        window.contentView = hostingView
         return UpdateNotificationWindowController(window: window)
     }
 
@@ -86,9 +91,9 @@ class UpdateNotificationWindowController: NSWindowController {
            let screen = buttonWindow.screen {
             let buttonFrame = buttonWindow.convertToScreen(button.frame)
             let x = buttonFrame.midX - 170
-            // Stack below the update notification if it's showing
-            let yOffset: CGFloat = existingWindow != nil ? 80 + 8 + 8 : 8
-            let y = buttonFrame.minY - 80 - yOffset
+            let h = window.frame.height
+            let yOffset: CGFloat = existingWindow.map { $0.frame.height + 8 } ?? 0
+            let y = buttonFrame.minY - h - 8 - yOffset
             let clampedX = max(8, min(x, screen.frame.maxX - 348))
             window.setFrameOrigin(NSPoint(x: clampedX, y: y))
         } else {
@@ -157,10 +162,10 @@ struct UpdateNotificationView: View {
                 Text(subtitle)
                     .font(.system(size: 11))
                     .foregroundColor(.secondary)
-                    .lineLimit(1)
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
-            Spacer()
+            Spacer(minLength: 8)
 
             Button(action: onDismiss) {
                 Image(systemName: "xmark")
@@ -171,7 +176,7 @@ struct UpdateNotificationView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 14)
-        .frame(width: 340, height: 80)
+        .frame(width: 340, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 13)
                 .fill(Color(nsColor: .windowBackgroundColor))

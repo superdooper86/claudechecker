@@ -8,7 +8,7 @@
 
 [![macOS](https://img.shields.io/badge/macOS-13.0+-000000?style=flat&logo=apple&logoColor=white)](https://www.apple.com/macos/)
 [![Swift](https://img.shields.io/badge/Swift-5.9-F05138?style=flat&logo=swift&logoColor=white)](https://swift.org)
-[![Version](https://img.shields.io/badge/version-2.0.9-orange?style=flat)](https://github.com/superdooper86/claudechecker/releases)
+[![Version](https://img.shields.io/badge/version-2.0.10-orange?style=flat)](https://github.com/superdooper86/claudechecker/releases)
 [![License](https://img.shields.io/badge/license-MIT-blue?style=flat)](LICENSE)
 
 </div>
@@ -35,6 +35,14 @@ No API key required. It reads directly from your `claude.ai` session using a bui
   <tr>
     <td align="center"><img src="screenshots/update-banner.png" width="280" alt="Update banner" /><br/><sub>Update available</sub></td>
     <td align="center"><img src="screenshots/notification.png" width="280" alt="Update notification" /><br/><sub>System notification</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="screenshots/notif-limit-80.png" width="280" alt="80% limit warning" /><br/><sub>80% limit warning</sub></td>
+    <td align="center"><img src="screenshots/notif-limit-95.png" width="280" alt="95% limit warning" /><br/><sub>95% limit warning</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="screenshots/notif-reset.png" width="280" alt="Limit reset" /><br/><sub>Limit reset</sub></td>
+    <td></td>
   </tr>
 </table>
 
