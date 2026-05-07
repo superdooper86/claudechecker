@@ -29,8 +29,8 @@ No API key required. It reads directly from your `claude.ai` session using a bui
 
 <table>
   <tr>
-    <td align="center"><img src="screenshots/main.png" width="280" alt="Main window" /><br/><sub>Main window</sub></td>
-    <td align="center"><img src="screenshots/settings.png" width="280" alt="Settings" /><br/><sub>Settings</sub></td>
+    <td align="center"><img src="screenshots/main-v2.png" width="280" alt="Main window" /><br/><sub>Main window</sub></td>
+    <td align="center"><img src="screenshots/settings-v2.png" width="280" alt="Settings" /><br/><sub>Settings</sub></td>
   </tr>
   <tr>
     <td align="center"><img src="screenshots/update-banner.png" width="280" alt="Update banner" /><br/><sub>Update available</sub></td>
