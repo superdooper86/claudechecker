@@ -80,6 +80,9 @@ class UpdateManager: ObservableObject {
                 if !wasAvailable {
                     NotificationCenter.default.post(name: .updateDetected, object: stable.version)
                 }
+            } else {
+                updateAvailable = false
+                latestVersion = ""
             }
         } else {
             print("[UpdateManager] Stable fetch returned nil")
