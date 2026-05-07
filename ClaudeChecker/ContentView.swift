@@ -789,25 +789,23 @@ struct SettingsView: View {
                             .padding(.vertical, 1)
                             .background(Color.primary.opacity(0.06))
                             .cornerRadius(4)
-                        if updater.updateAvailable {
-                            Text("v\(updater.latestVersion) available")
-                                .font(.system(size: 10, weight: .medium))
-                                .foregroundColor(.white)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(Color.blue)
-                                .cornerRadius(4)
-                                .fixedSize()
-                        } else if updater.betaAvailable {
-                            Text("v\(updater.latestBetaVersion) available")
-                                .font(.system(size: 10, weight: .medium))
-                                .foregroundColor(.white)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(Color.orange)
-                                .cornerRadius(4)
-                                .fixedSize()
-                        }
+                    }
+                    if updater.updateAvailable {
+                        Text("v\(updater.latestVersion) available")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.blue)
+                            .cornerRadius(4)
+                    } else if updater.betaAvailable {
+                        Text("v\(updater.latestBetaVersion) available")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.orange)
+                            .cornerRadius(4)
                     }
                     Text("Built by superdooper86 & claude")
                         .font(.system(size: 11))
