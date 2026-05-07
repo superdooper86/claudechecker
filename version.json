@@ -1,5 +1,5 @@
 {
   "version": "1.2",
-  "url": "https://github.com/superdooper86/ClaudeChecker/releases/download/v1.1/ClaudeChecker.zip",
-  "notes": "Bug fixes and improvements"
+  "url": "https://github.com/superdooper86/claudechecker/releases/download/v1.2/ClaudeChecker.zip",
+  "notes": "Auto-update improvements, post-update success message, beta channel support"
 }
