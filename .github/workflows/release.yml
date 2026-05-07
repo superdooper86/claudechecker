@@ -66,21 +66,24 @@ jobs:
             ../homebrew-tap/Casks/claudechecker.rb 2>/dev/null || true
 
       - name: Update README badge
+        env:
+          NEW_VERSION: ${{ steps.version.outputs.version }}
         run: |
           python3 -c "
-content = open('README.md').read()
-import re
-content = re.sub(r'version-[0-9][^-]*-orange', 'version-${{ steps.version.outputs.version }}-orange', content)
-lines = content.splitlines(keepends=True)
-out = []
-for line in lines:
-    if '<!-- BETA_BADGE -->' in line:
-        continue
-    out.append(line)
-    if 'license-MIT-blue' in line:
-        out.append('<!-- BETA_BADGE -->\n')
-open('README.md', 'w').writelines(out)
-"
+          import os, re
+          v = os.environ['NEW_VERSION']
+          content = open('README.md').read()
+          content = re.sub(r'version-[0-9][^-]*-orange', 'version-' + v + '-orange', content)
+          lines = content.splitlines(keepends=True)
+          out = []
+          for line in lines:
+              if '<!-- BETA_BADGE -->' in line:
+                  continue
+              out.append(line)
+              if 'license-MIT-blue' in line:
+                  out.append('<!-- BETA_BADGE -->' + chr(10))
+          open('README.md', 'w').writelines(out)
+          "
 
       - name: Commit version.json and README
         run: |
