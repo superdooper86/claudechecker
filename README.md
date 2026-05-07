@@ -27,14 +27,23 @@ No API key required. It reads directly from your `claude.ai` session using a bui
 
 <div align="center">
 
-<img src="screenshots/main.png" width="320" alt="Main window" />
-<img src="screenshots/settings.png" width="320" alt="Settings" />
+<table>
+  <tr>
+    <td align="center"><img src="screenshots/main.png" width="280" alt="Main window" /><br/><sub>Main window</sub></td>
+    <td align="center"><img src="screenshots/settings.png" width="280" alt="Settings" /><br/><sub>Settings</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="screenshots/update-banner.png" width="280" alt="Update banner" /><br/><sub>Update available</sub></td>
+    <td align="center"><img src="screenshots/notification.png" width="280" alt="Update notification" /><br/><sub>System notification</sub></td>
+  </tr>
+</table>
 
-<img src="screenshots/update-banner.png" width="320" alt="Update available banner" />
-<img src="screenshots/notification.png" width="320" alt="Update notification" />
+<br/>
 
-<img src="screenshots/menubar-percent.png" width="120" alt="Menubar percentage display" />
-<img src="screenshots/menubar-icon.png" width="40" alt="Menubar icon" />
+**Menubar display**<br/>
+<img src="screenshots/menubar-icon.png" height="22" alt="Menubar icon" />
+&nbsp;
+<img src="screenshots/menubar-percent.png" height="22" alt="Menubar percentage" />
 
 </div>
 
