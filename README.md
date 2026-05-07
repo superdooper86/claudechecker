@@ -113,7 +113,9 @@ ClaudeChecker reads from the following `claude.ai` API endpoints (authenticated 
 | Endpoint | Used for |
 |---|---|
 | `/api/bootstrap` | Organisation UUID |
-| `/api/organizations/{id}/usage` | Quota windows and credit usage |
+| `/api/organizations/{id}/usage` | 5-hour and 7-day quota windows |
+| `/api/organizations/{id}/overage_spend_limit` | Extra usage spent and monthly limit |
+| `/api/organizations/{id}/prepaid/credits` | Current credit balance |
 
 ---
 
