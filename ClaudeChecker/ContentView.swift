@@ -94,6 +94,9 @@ struct ContentView: View {
         }
         .frame(width: 480)
         .animation(.easeInOut(duration: 0.2), value: showSettings)
+        .onReceive(NotificationCenter.default.publisher(for: .popoverWillOpen)) { _ in
+            showSettings = false
+        }
         .onReceive(NotificationCenter.default.publisher(for: .openUpdateSheet)) { _ in
             showSettings = false
             showUpdateSheet = true

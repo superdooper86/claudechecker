@@ -199,6 +199,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @objc func showPopover() {
         guard let button = statusItem?.button, let popover else { return }
         if !popover.isShown {
+            NotificationCenter.default.post(name: .popoverWillOpen, object: nil)
             popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
             NSApp.activate(ignoringOtherApps: true)
         }
@@ -209,6 +210,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if popover.isShown {
             popover.performClose(nil)
         } else {
+            NotificationCenter.default.post(name: .popoverWillOpen, object: nil)
             popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
             NSApp.activate(ignoringOtherApps: true)
         }

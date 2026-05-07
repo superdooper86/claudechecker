@@ -1,4 +1,4 @@
-## What's new in v1.0.9
+## What's new in v1.1.0
 
-### Fixed update notification popup
-The notification popup now correctly shows **"Tap to view release notes & update now!"** instead of the raw markdown release notes text.
+### Main window always opens on click
+Closing the app while Settings was open would cause the next click to reopen straight to Settings. The app now always returns to the main window when reopened.

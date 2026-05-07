@@ -307,6 +307,7 @@ extension Notification.Name {
     static let refreshIntervalChanged = Notification.Name("refreshIntervalChanged")
     static let closePopover = Notification.Name("closePopover")
     static let showPopover = Notification.Name("showPopover")
+    static let popoverWillOpen = Notification.Name("popoverWillOpen")
     static let updateDetected = Notification.Name("updateDetected")
     static let limitWarning = Notification.Name("limitWarning")
     static let limitReset = Notification.Name("limitReset")
