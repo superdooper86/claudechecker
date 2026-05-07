@@ -318,12 +318,29 @@ class UpdateManager: ObservableObject {
     }
 
     private func isNewer(_ version: String, than current: String) -> Bool {
-        let toInts = { (v: String) in v.split(separator: ".").compactMap { Int($0) } }
-        let a = toInts(version), b = toInts(current)
-        for i in 0..<max(a.count, b.count) {
-            let av = i < a.count ? a[i] : 0
-            let bv = i < b.count ? b[i] : 0
+        func parse(_ v: String) -> (base: [Int], pre: [Int]?) {
+            let halves = v.split(separator: "-", maxSplits: 1)
+            let base = halves[0].split(separator: ".").compactMap { Int($0) }
+            let pre = halves.count > 1 ? String(halves[1]).split(separator: ".").compactMap { Int($0) } : nil
+            return (base, pre)
+        }
+        let a = parse(version), b = parse(current)
+        // Compare base version numbers
+        for i in 0..<max(a.base.count, b.base.count) {
+            let av = i < a.base.count ? a.base[i] : 0
+            let bv = i < b.base.count ? b.base[i] : 0
             if av != bv { return av > bv }
+        }
+        // Base equal: stable beats pre-release
+        if a.pre == nil && b.pre != nil { return true }
+        if a.pre != nil && b.pre == nil { return false }
+        // Both pre-release: compare pre-release numbers
+        if let ap = a.pre, let bp = b.pre {
+            for i in 0..<max(ap.count, bp.count) {
+                let av = i < ap.count ? ap[i] : 0
+                let bv = i < bp.count ? bp[i] : 0
+                if av != bv { return av > bv }
+            }
         }
         return false
     }
