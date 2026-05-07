@@ -131,6 +131,12 @@ brew install --cask claudechecker
 3. Unzip and drag `ClaudeChecker.app` to `/Applications`
 4. Open from Applications — it will appear in your menubar
 
+> **macOS security prompt?** If macOS blocks the app on first launch, run this in Terminal:
+> ```bash
+> xattr -cr /Applications/ClaudeChecker.app
+> ```
+> This is not needed when installing via Homebrew.
+
 ---
 
 ## First Run
