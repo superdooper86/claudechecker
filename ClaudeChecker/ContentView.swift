@@ -40,8 +40,7 @@ struct ContentView: View {
                         .environmentObject(updater)
                         .transition(.move(edge: .trailing).combined(with: .opacity))
                 } else {
-                    ScrollView(.vertical, showsIndicators: false) {
-                        VStack(spacing: 0) {
+                    VStack(spacing: 0) {
                             // Cards grid
                             if vm.limits.isEmpty {
                                 EmptyStateView()
@@ -96,7 +95,6 @@ struct ContentView: View {
                                         .padding(.bottom, 8)
                                 }
                             }
-                        }
                     }
                     .transition(.opacity)
 
