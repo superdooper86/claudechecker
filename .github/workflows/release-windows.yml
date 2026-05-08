@@ -3,7 +3,7 @@ name: Release Windows
 on:
   push:
     tags:
-      - 'win-v*'
+      - 'win-v[0-9]*'
       - '!win-v*-*'
 
 jobs:
@@ -57,15 +57,21 @@ jobs:
         shell: bash
         run: |
           notes=$(cat windows/RELEASE_NOTES.md 2>/dev/null || echo "Windows release ${{ steps.version.outputs.version }}")
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git fetch origin main
-          git checkout main
-          jq -n \
+          content=$(jq -n \
             --arg version "${{ steps.version.outputs.version }}" \
             --arg url "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/ClaudeChecker-Windows.zip" \
             --arg notes "$notes" \
-            '{version: $version, url: $url, notes: $notes}' > version-windows.json
-          git add version-windows.json
-          git commit -m "Windows release ${{ github.ref_name }}"
-          git push origin main
+            '{version: $version, url: $url, notes: $notes}' | base64 -w0)
+          sha=$(gh api "repos/${{ github.repository }}/contents/version-windows.json?ref=main" --jq .sha 2>/dev/null || echo "")
+          if [ -n "$sha" ]; then
+            gh api --method PUT "repos/${{ github.repository }}/contents/version-windows.json" \
+              --field "message=Windows release ${{ github.ref_name }}" \
+              --field "content=$content" \
+              --field "branch=main" \
+              --field "sha=$sha"
+          else
+            gh api --method PUT "repos/${{ github.repository }}/contents/version-windows.json" \
+              --field "message=Windows release ${{ github.ref_name }}" \
+              --field "content=$content" \
+              --field "branch=main"
+          fi
