@@ -21,14 +21,21 @@ public class AgentLimit
 
 public class UsageResponse
 {
-    [JsonPropertyName("five_hour")] public WindowData? FiveHour { get; set; }
-    [JsonPropertyName("seven_day")] public WindowData? SevenDay  { get; set; }
+    [JsonPropertyName("five_hour")]   public WindowData?  FiveHour   { get; set; }
+    [JsonPropertyName("seven_day")]   public WindowData?  SevenDay   { get; set; }
+    [JsonPropertyName("extra_usage")] public ExtraUsage?  ExtraUsage { get; set; }
 }
 
 public class WindowData
 {
     [JsonPropertyName("utilization")] public double Utilization { get; set; }
     [JsonPropertyName("resets_at")]   public string? ResetsAt   { get; set; }
+}
+
+public class ExtraUsage
+{
+    [JsonPropertyName("is_enabled")] public bool    IsEnabled { get; set; }
+    [JsonPropertyName("currency")]   public string? Currency  { get; set; }
 }
 
 public class BootstrapResponse
