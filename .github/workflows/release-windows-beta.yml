@@ -57,15 +57,21 @@ jobs:
         shell: bash
         run: |
           notes=$(cat windows/RELEASE_NOTES.md 2>/dev/null || echo "Windows beta ${{ steps.version.outputs.version }}")
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git fetch origin main
-          git checkout main
-          jq -n \
+          content=$(jq -n \
             --arg version "${{ steps.version.outputs.version }}" \
             --arg url "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/ClaudeChecker-Windows.zip" \
             --arg notes "$notes" \
-            '{version: $version, url: $url, notes: $notes}' > version-windows-beta.json
-          git add version-windows-beta.json
-          git commit -m "Windows beta release ${{ github.ref_name }}"
-          git push origin main
+            '{version: $version, url: $url, notes: $notes}' | base64 -w0)
+          sha=$(gh api "repos/${{ github.repository }}/contents/version-windows-beta.json?ref=main" --jq .sha 2>/dev/null || echo "")
+          if [ -n "$sha" ]; then
+            gh api --method PUT "repos/${{ github.repository }}/contents/version-windows-beta.json" \
+              --field "message=Windows beta release ${{ github.ref_name }}" \
+              --field "content=$content" \
+              --field "branch=main" \
+              --field "sha=$sha"
+          else
+            gh api --method PUT "repos/${{ github.repository }}/contents/version-windows-beta.json" \
+              --field "message=Windows beta release ${{ github.ref_name }}" \
+              --field "content=$content" \
+              --field "branch=main"
+          fi
