@@ -1,4 +1,3 @@
-using Color = System.Windows.Media.Color;
 using Point = System.Windows.Point;
 using System.Collections.Generic;
 using System.Windows;
