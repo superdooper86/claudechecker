@@ -1,4 +1,4 @@
-## What's new in v1.1.4-beta.4
+## What's new in v1.1.4-beta.5
 
-### Bug fix
-- Plan name now updates correctly on every refresh (was only set on first launch)
+### Improvements
+- Bootstrap API call consolidated — org ID, email, and plan name now fetched in a single request per refresh
