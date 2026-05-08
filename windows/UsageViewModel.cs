@@ -91,9 +91,9 @@ public class UsageViewModel : INotifyPropertyChanged
 
             using var http = BuildClient(cookies);
 
-            // Bootstrap gives us email + org ID. If it fails, cookies are invalid.
-            var (email, orgId) = await FetchBootstrapAsync(http);
-            if (string.IsNullOrEmpty(orgId))
+            // Bootstrap: 200 = authenticated. Non-200 = session expired.
+            var bootstrapResp = await http.GetAsync("https://claude.ai/api/bootstrap");
+            if (!bootstrapResp.IsSuccessStatusCode)
             {
                 await Application.Current.Dispatcher.InvokeAsync(() =>
                 {
@@ -104,18 +104,34 @@ public class UsageViewModel : INotifyPropertyChanged
                 return;
             }
 
-            // Cache org ID for resilience
-            AppSettings.Default.OrgId = orgId;
-            AppSettings.Default.Save();
+            // Parse email and org ID (best-effort — don't fail auth if org ID is missing)
+            var bootstrapJson = await bootstrapResp.Content.ReadAsStringAsync();
+            var (email, orgId) = ParseBootstrap(bootstrapJson);
 
-            var usageTask   = FetchAsync<UsageResponse>(http, $"https://claude.ai/api/organizations/{orgId}/usage");
-            var overageTask = FetchAsync<OverageSpendLimit>(http, $"https://claude.ai/api/organizations/{orgId}/overage_spend_limit");
-            var prepaidTask = FetchAsync<PrepaidCredits>(http, $"https://claude.ai/api/organizations/{orgId}/prepaid/credits");
+            // Resolve org ID through fallback chain
+            if (string.IsNullOrEmpty(orgId))
+                orgId = await FetchOrgIdFromListAsync(http);
+            if (string.IsNullOrEmpty(orgId) && !string.IsNullOrEmpty(AppSettings.Default.OrgId))
+                orgId = AppSettings.Default.OrgId;
 
-            await Task.WhenAll(usageTask, overageTask, prepaidTask);
+            List<AgentLimit> limits = [];
+            OverageSpendLimit? overage = null;
+            PrepaidCredits? prepaid = null;
 
-            var usage  = usageTask.Result;
-            var limits = BuildLimits(usage);
+            if (!string.IsNullOrEmpty(orgId))
+            {
+                AppSettings.Default.OrgId = orgId;
+                AppSettings.Default.Save();
+
+                var usageTask   = FetchAsync<UsageResponse>(http, $"https://claude.ai/api/organizations/{orgId}/usage");
+                var overageTask = FetchAsync<OverageSpendLimit>(http, $"https://claude.ai/api/organizations/{orgId}/overage_spend_limit");
+                var prepaidTask = FetchAsync<PrepaidCredits>(http, $"https://claude.ai/api/organizations/{orgId}/prepaid/credits");
+                await Task.WhenAll(usageTask, overageTask, prepaidTask);
+
+                limits = BuildLimits(usageTask.Result);
+                overage = overageTask.Result;
+                prepaid = prepaidTask.Result;
+            }
 
             foreach (var limit in limits)
             {
@@ -131,11 +147,11 @@ public class UsageViewModel : INotifyPropertyChanged
             await Application.Current.Dispatcher.InvokeAsync(() =>
             {
                 Limits       = limits;
-                Overage      = overageTask.Result;
-                Prepaid      = prepaidTask.Result;
+                Overage      = overage;
+                Prepaid      = prepaid;
                 UserEmail    = email ?? UserEmail;
                 IsSignedIn   = true;
-                ErrorMessage = null;
+                ErrorMessage = string.IsNullOrEmpty(orgId) ? "Signed in, but couldn't find your organization data." : null;
                 LastUpdated  = DateTime.Now;
                 IsLoading    = false;
             });
@@ -193,7 +209,9 @@ public class UsageViewModel : INotifyPropertyChanged
         var handler = new HttpClientHandler { UseCookies = false };
         var http    = new HttpClient(handler);
         http.DefaultRequestHeaders.Add("accept", "application/json");
-        http.DefaultRequestHeaders.Add("anthropic-client-platform", "web");
+        http.DefaultRequestHeaders.Add("User-Agent",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+            "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36");
         var cookieHeader = string.Join("; ", cookies.Select(c => $"{c.Name}={c.Value}"));
         http.DefaultRequestHeaders.Add("Cookie", cookieHeader);
         return http;
@@ -211,17 +229,13 @@ public class UsageViewModel : INotifyPropertyChanged
         catch { return null; }
     }
 
-    // Returns (email, orgId). orgId null means auth failed.
-    private static async Task<(string? Email, string? OrgId)> FetchBootstrapAsync(HttpClient http)
+    // Parse email and org ID out of bootstrap JSON (multiple fallback paths for org ID)
+    private static (string? Email, string? OrgId) ParseBootstrap(string json)
     {
         try
         {
-            var resp = await http.GetAsync("https://claude.ai/api/bootstrap");
-            if (!resp.IsSuccessStatusCode) return (null, null);
-
-            var json = await resp.Content.ReadAsStringAsync();
             using var doc = JsonDocument.Parse(json);
-            var root      = doc.RootElement;
+            var root = doc.RootElement;
 
             string? email = null;
             string? orgId = null;
@@ -230,7 +244,7 @@ public class UsageViewModel : INotifyPropertyChanged
                 acct.TryGetProperty("email_address", out var em))
                 email = em.GetString();
 
-            // Try memberships[0].organization.uuid
+            // Path 1: memberships[0].organization.uuid
             if (root.TryGetProperty("memberships", out var mems) && mems.GetArrayLength() > 0)
             {
                 var first = mems[0];
@@ -239,13 +253,13 @@ public class UsageViewModel : INotifyPropertyChanged
                     orgId = uuid.GetString();
             }
 
-            // Fall back to cached org ID
-            if (string.IsNullOrEmpty(orgId) && !string.IsNullOrEmpty(AppSettings.Default.OrgId))
-                orgId = AppSettings.Default.OrgId;
-
-            // Last resort: dedicated organizations endpoint
-            if (string.IsNullOrEmpty(orgId))
-                orgId = await FetchOrgIdFromListAsync(http);
+            // Path 2: organizations[0].uuid (flat list on root)
+            if (string.IsNullOrEmpty(orgId) &&
+                root.TryGetProperty("organizations", out var orgs) && orgs.GetArrayLength() > 0)
+            {
+                if (orgs[0].TryGetProperty("uuid", out var uuid))
+                    orgId = uuid.GetString();
+            }
 
             return (email, orgId);
         }
