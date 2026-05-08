@@ -20,7 +20,7 @@ public class UsageViewModel : INotifyPropertyChanged
     private string? _errorMessage;
     private bool _isSignedIn;
     private string _userEmail = "";
-    private string _planLabel = "Pro";
+    private string _planLabel = "Claude";
     private DateTime? _lastUpdated;
     private OverageSpendLimit? _overage;
     private PrepaidCredits? _prepaid;
@@ -100,9 +100,9 @@ public class UsageViewModel : INotifyPropertyChanged
             // HttpClient refresh — WebView2 is NOT used here to avoid spawning a heavy
             // browser process every refresh cycle (causes memory accumulation).
             // SaveAndClose at login time is responsible for fetching live data via WebView2.
-            var (limits, overage, prepaid, extraUsage, email, orgId, ok) = hasCookies
+            var (limits, overage, prepaid, extraUsage, email, orgId, planLabel, ok) = hasCookies
                 ? await TryHttpRefreshAsync(cookies)
-                : ([], null, null, null, null, null, false);
+                : ([], null, null, null, null, null, null, false);
 
             // Fill in any blanks from cached values saved at login time
             if (string.IsNullOrEmpty(email))  email  = AppSettings.Default.Email;
@@ -132,6 +132,7 @@ public class UsageViewModel : INotifyPropertyChanged
             await Application.Current.Dispatcher.InvokeAsync(() =>
             {
                 if (limits.Count > 0) { Limits = limits; Overage = overage; Prepaid = prepaid; ExtraUsage = extraUsage; }
+                if (!string.IsNullOrEmpty(planLabel)) PlanLabel = planLabel;
                 if (!string.IsNullOrEmpty(email)) UserEmail = email;
                 IsSignedIn   = true;
                 ErrorMessage = null;
@@ -149,7 +150,7 @@ public class UsageViewModel : INotifyPropertyChanged
         }
     }
 
-    private async Task<(List<AgentLimit>, OverageSpendLimit?, PrepaidCredits?, ExtraUsage?, string?, string?, bool)>
+    private async Task<(List<AgentLimit>, OverageSpendLimit?, PrepaidCredits?, ExtraUsage?, string?, string?, string?, bool)>
         TryHttpRefreshAsync(List<(string Name, string Value, string Domain, string Path)> cookies)
     {
         try
@@ -157,9 +158,9 @@ public class UsageViewModel : INotifyPropertyChanged
             using var http = BuildClient(cookies);
             var bootstrapResp = await http.GetAsync("https://claude.ai/api/bootstrap");
             if (!bootstrapResp.IsSuccessStatusCode)
-                return ([], null, null, null, null, false);
+                return ([], null, null, null, null, null, false);
 
-            var (email, orgId) = ParseBootstrap(await bootstrapResp.Content.ReadAsStringAsync());
+            var (email, orgId, planLabel) = ParseBootstrap(await bootstrapResp.Content.ReadAsStringAsync());
 
             if (string.IsNullOrEmpty(orgId))
                 orgId = await FetchOrgIdFromListAsync(http);
@@ -167,7 +168,7 @@ public class UsageViewModel : INotifyPropertyChanged
                 orgId = AppSettings.Default.OrgId;
 
             if (string.IsNullOrEmpty(orgId))
-                return ([], null, null, null, email, orgId, true);
+                return ([], null, null, null, email, orgId, planLabel, true);
 
             AppSettings.Default.OrgId = orgId;
             AppSettings.Default.Save();
@@ -177,9 +178,9 @@ public class UsageViewModel : INotifyPropertyChanged
             var pt = FetchAsync<PrepaidCredits>(http, $"https://claude.ai/api/organizations/{orgId}/prepaid/credits");
             await Task.WhenAll(ut, ot, pt);
 
-            return (BuildLimits(ut.Result), ot.Result, pt.Result, ut.Result?.ExtraUsage, email, orgId, true);
+            return (BuildLimits(ut.Result), ot.Result, pt.Result, ut.Result?.ExtraUsage, email, orgId, planLabel, true);
         }
-        catch { return ([], null, null, null, null, null, false); }
+        catch { return ([], null, null, null, null, null, null, false); }
     }
 
     private static async Task<(List<AgentLimit>, string?, string?)> TryWebView2RefreshAsync()
@@ -351,7 +352,7 @@ public class UsageViewModel : INotifyPropertyChanged
     }
 
     // Parse email and org ID out of bootstrap JSON (multiple fallback paths for org ID)
-    private static (string? Email, string? OrgId) ParseBootstrap(string json)
+    private static (string? Email, string? OrgId, string? PlanLabel) ParseBootstrap(string json)
     {
         try
         {
@@ -393,7 +394,25 @@ public class UsageViewModel : INotifyPropertyChanged
                     orgId = uuid.GetString();
             }
 
-            return (email, orgId);
+            string? planLabel = null;
+            if (!string.IsNullOrEmpty(orgId))
+            {
+                // Try account.memberships[0].organization.plan_type
+                if (root.TryGetProperty("account", out var acctPlan) &&
+                    acctPlan.TryGetProperty("memberships", out var plMems) && plMems.GetArrayLength() > 0)
+                {
+                    var firstMem = plMems[0];
+                    if (firstMem.TryGetProperty("organization", out var plOrg) &&
+                        plOrg.TryGetProperty("plan_type", out var pt) &&
+                        pt.ValueKind == System.Text.Json.JsonValueKind.String)
+                    {
+                        var raw = pt.GetString() ?? "";
+                        if (raw.Length > 0)
+                            planLabel = char.ToUpper(raw[0]) + raw.Substring(1).ToLower();
+                    }
+                }
+            }
+            return (email, orgId, planLabel);
         }
         catch { return (null, null); }
     }
