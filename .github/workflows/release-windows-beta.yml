@@ -53,7 +53,7 @@ jobs:
 
       - name: Update version-windows-beta.json on main
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
         shell: bash
         run: |
           notes=$(cat windows/RELEASE_NOTES.md 2>/dev/null || echo "Windows beta ${{ steps.version.outputs.version }}")
