@@ -1,5 +1,5 @@
 {
-  "version": "0.0.1-beta.44",
-  "url": "https://github.com/superdooper86/claudechecker/releases/download/win-v0.0.1-beta.44/ClaudeChecker-Windows.zip",
+  "version": "0.0.1-beta.45",
+  "url": "https://github.com/superdooper86/claudechecker/releases/download/win-v0.0.1-beta.45/ClaudeChecker-Windows.zip",
   "notes": "## What's new in beta.36\r\n\r\n### Bug fixes\r\n- Settings no longer incorrectly shows \"Not signed in\" when limits are working\r\n- Session Diary now shows correctly after the first successful refresh\r\n- Extra Usage Credits section now restored from cache on startup\r\n- Plan name, overage, and prepaid credits are now cached and shown immediately on launch\r\n- App now loads cached state instantly on startup before the background refresh completes"
 }
