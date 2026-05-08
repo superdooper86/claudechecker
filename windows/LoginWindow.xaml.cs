@@ -73,20 +73,23 @@ public partial class LoginWindow : Window
             const string script = @"(async()=>{try{
                 const h={headers:{accept:'application/json'}};
                 const b=await(await fetch('/api/bootstrap',h)).json();
+                const bkeys=Object.keys(b||{}).join(',');
+                const akeys=Object.keys(b?.account||{}).join(',');
                 let id=b?.memberships?.[0]?.organization?.uuid||b?.organizations?.[0]?.uuid
                         ||b?.default_organization?.uuid||null;
                 const e=b?.account?.email_address||b?.account?.email||b?.email||null;
+                let orgSrc='bootstrap';
                 if(!id){
                     try{const ol=await(await fetch('/api/organizations',h)).json();
-                        if(Array.isArray(ol)&&ol.length>0)id=ol[0]?.uuid||null;}catch(e2){}
+                        if(Array.isArray(ol)&&ol.length>0){id=ol[0]?.uuid||null;orgSrc='orgs-list';}}catch(e2){}
                 }
                 if(!id){
                     try{const pu=await(await fetch('/api/usage',h)).json();
-                        if(pu&&!pu.error)return{email:e,orgId:null,usage:pu};}catch(e3){}
-                    return{email:e,orgId:null,usage:null};
+                        if(pu&&!pu.error)return{email:e,orgId:null,usage:pu,debug:'no-org|bkeys:'+bkeys+'|akeys:'+akeys};}catch(e3){}
+                    return{email:e,orgId:null,usage:null,debug:'no-org|bkeys:'+bkeys+'|akeys:'+akeys};
                 }
                 const u=await(await fetch('/api/organizations/'+id+'/usage',h)).json();
-                return{email:e,orgId:id,usage:u};
+                return{email:e,orgId:id,usage:u,debug:'orgSrc:'+orgSrc+'|bkeys:'+bkeys+'|akeys:'+akeys};
             }catch(ex){return{error:String(ex)};}})()";
 
             var json = await Browser.CoreWebView2.ExecuteScriptAsync(script);
@@ -103,6 +106,11 @@ public partial class LoginWindow : Window
 
                 if (root.TryGetProperty("usage", out var us) && us.ValueKind == JsonValueKind.Object)
                     AppSettings.Default.UsageJson = us.GetRawText();
+
+                if (root.TryGetProperty("debug", out var dbg) && dbg.ValueKind == JsonValueKind.String)
+                    AppSettings.Default.DebugInfo = dbg.GetString() ?? "";
+                else if (root.TryGetProperty("error", out var err))
+                    AppSettings.Default.DebugInfo = "error:" + err.GetRawText();
 
                 AppSettings.Default.Save();
             }
