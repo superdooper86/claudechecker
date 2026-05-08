@@ -69,10 +69,12 @@ class UsageViewModel: ObservableObject {
         do {
             // Fetch org ID dynamically if not cached
             if cachedOrgId == nil {
-                cachedOrgId = try await fetchOrgId()
+                let (fetchedOrgId, fetchedPlan) = try await fetchOrgId()
+                cachedOrgId = fetchedOrgId
                 if let id = cachedOrgId {
                     UserDefaults.standard.set(id, forKey: "claude_org_id")
                 }
+                if let plan = fetchedPlan { planLabel = plan }
             }
             guard let orgId = cachedOrgId else {
                 throw AppError.notAuthenticated
@@ -88,7 +90,6 @@ class UsageViewModel: ObservableObject {
             extraUsage = usage.extraUsage
             prepaidCredits = prepaid
             overageSpendLimit = overage
-            planLabel = "Pro"
             lastUpdated = Date()
             isSignedIn = true
 
@@ -123,7 +124,7 @@ class UsageViewModel: ObservableObject {
 
     // MARK: - Fetch org ID from bootstrap
 
-    private func fetchOrgId() async throws -> String? {
+    private func fetchOrgId() async throws -> (orgId: String?, planLabel: String?) {
         let url = URL(string: "https://claude.ai/api/bootstrap")!
         var req = URLRequest(url: url)
         req.setValue("application/json", forHTTPHeaderField: "accept")
@@ -137,27 +138,32 @@ class UsageViewModel: ObservableObject {
         guard let http = response as? HTTPURLResponse else { throw AppError.networkError }
         if http.statusCode == 401 || http.statusCode == 403 { throw AppError.notAuthenticated }
         guard http.statusCode == 200 else { throw AppError.networkError }
-        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return (nil, nil) }
+
+        func planFromOrg(_ org: [String: Any]?) -> String? {
+            guard let pt = org?["plan_type"] as? String, !pt.isEmpty else { return nil }
+            return pt.prefix(1).uppercased() + pt.dropFirst().lowercased()
+        }
 
         // account.memberships[0].organization.uuid
         if let account = json["account"] as? [String: Any],
            let memberships = account["memberships"] as? [[String: Any]],
            let org = memberships.first?["organization"] as? [String: Any],
            let uuid = org["uuid"] as? String {
-            return uuid
+            return (uuid, planFromOrg(org))
         }
         // root memberships (older API shape)
         if let memberships = json["memberships"] as? [[String: Any]],
            let org = memberships.first?["organization"] as? [String: Any],
            let uuid = org["uuid"] as? String {
-            return uuid
+            return (uuid, planFromOrg(org))
         }
         // root organizations array
         if let orgs = json["organizations"] as? [[String: Any]],
            let uuid = orgs.first?["uuid"] as? String {
-            return uuid
+            return (uuid, planFromOrg(orgs.first))
         }
-        return nil
+        return (nil, nil)
     }
 
     // MARK: - Fetch usage
