@@ -33,6 +33,7 @@ public partial class App : Application
         base.OnStartup(e);
         ThemeManager.Initialize();
         SetupTray();
+        ShowPopup();
         ScheduleTimer(ViewModel.RefreshInterval);
 
         _ = Task.Run(async () =>
