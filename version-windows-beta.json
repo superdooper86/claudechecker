@@ -1,5 +1,5 @@
 {
-  "version": "0.0.1-beta.19",
-  "url": "https://github.com/superdooper86/claudechecker/releases/download/win-v0.0.1-beta.19/ClaudeChecker-Windows.zip",
-  "notes": "## What's new in beta.19\r\n\r\n- Fixed dark mode: button hover no longer white, ComboBox fully themed\r\n- Fixed logo and version badge in Settings panel\r\n- Fixed signed-in email showing blank (TextBrush instead of hardcoded white)\r\n- Fixed session limits not loading: org ID now fetched dynamically from API\r\n- Added anthropic-client-platform header for correct API responses"
+  "version": "0.0.1-beta.20",
+  "url": "https://github.com/superdooper86/claudechecker/releases/download/win-v0.0.1-beta.20/ClaudeChecker-Windows.zip",
+  "notes": "## What's new in beta.20\r\n\r\n- Fixed: app now correctly shows you as signed in after login\r\n- Fixed: org ID is fetched from API rather than hardcoded; tries multiple JSON paths\r\n- Fixed: auth check now uses HTTP 200 from bootstrap (not whether org ID was found)\r\n- Added browser User-Agent header so API responds correctly"
 }
