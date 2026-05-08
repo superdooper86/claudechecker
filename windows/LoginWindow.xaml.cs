@@ -82,11 +82,13 @@ public partial class LoginWindow : Window
             const string script = @"(async()=>{try{
                 const h={headers:{accept:'application/json'}};
                 const b=await(await fetch('/api/bootstrap',h)).json();
-                const rawB=JSON.stringify(b).slice(0,600);
-                let id=b?.account?.memberships?.[0]?.organization?.uuid
-                        ||b?.memberships?.[0]?.organization?.uuid||b?.organizations?.[0]?.uuid
-                        ||b?.default_organization?.uuid||null;
+                const org0=b?.account?.memberships?.[0]?.organization;
+                let id=org0?.uuid||b?.memberships?.[0]?.organization?.uuid
+                        ||b?.organizations?.[0]?.uuid||b?.default_organization?.uuid||null;
                 const e=b?.account?.email_address||b?.account?.email||b?.email||null;
+                const caps=org0?.capabilities||[];
+                const capStr=caps.find(c=>typeof c==='string'&&c.startsWith('claude_'))||null;
+                const planLabel=capStr?(capStr.slice(7,8).toUpperCase()+capStr.slice(8).toLowerCase()):null;
                 let orgSrc='bootstrap';
                 if(!id){
                     try{const ol=await(await fetch('/api/organizations',h)).json();
@@ -95,12 +97,11 @@ public partial class LoginWindow : Window
                 if(!id){
                     let pu=null;
                     try{pu=await(await fetch('/api/usage',h)).json();}catch(e3){}
-                    window.chrome.webview.postMessage({email:e,orgId:null,usage:(pu&&!pu.error?pu:null),debug:'no-org|raw:'+rawB});
+                    window.chrome.webview.postMessage({email:e,orgId:null,planLabel,usage:(pu&&!pu.error?pu:null),debug:'no-org'});
                     return;
                 }
                 const u=await(await fetch('/api/organizations/'+id+'/usage',h)).json();
-                const rawU=JSON.stringify(u).slice(0,400);
-                window.chrome.webview.postMessage({email:e,orgId:id,usage:u,debug:'src:'+orgSrc+'|ukeys:'+Object.keys(u||{}).join(',')+'|rawU:'+rawU+'|rawB:'+rawB});
+                window.chrome.webview.postMessage({email:e,orgId:id,planLabel,usage:u,debug:'src:'+orgSrc+'|plan:'+(planLabel||'none')});
             }catch(ex){window.chrome.webview.postMessage({error:String(ex)});}})()";
 
             await Browser.CoreWebView2.ExecuteScriptAsync(script);
@@ -122,6 +123,10 @@ public partial class LoginWindow : Window
 
                 if (root.TryGetProperty("usage", out var us) && us.ValueKind == JsonValueKind.Object)
                     AppSettings.Default.UsageJson = us.GetRawText();
+
+                if (root.TryGetProperty("planLabel", out var pl) && pl.ValueKind == JsonValueKind.String
+                    && !string.IsNullOrEmpty(pl.GetString()))
+                    AppSettings.Default.PlanLabel = pl.GetString()!;
 
                 if (root.TryGetProperty("debug", out var dbg) && dbg.ValueKind == JsonValueKind.String)
                     AppSettings.Default.DebugInfo = dbg.GetString() ?? "";
