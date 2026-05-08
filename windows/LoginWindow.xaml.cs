@@ -99,8 +99,8 @@ public partial class LoginWindow : Window
                     return;
                 }
                 const u=await(await fetch('/api/organizations/'+id+'/usage',h)).json();
-                const rawU=JSON.stringify(u).slice(0,300);
-                window.chrome.webview.postMessage({email:e,orgId:id,usage:u,debug:'src:'+orgSrc+'|ukeys:'+Object.keys(u||{}).join(',')+'|raw:'+rawB});
+                const rawU=JSON.stringify(u).slice(0,400);
+                window.chrome.webview.postMessage({email:e,orgId:id,usage:u,debug:'src:'+orgSrc+'|ukeys:'+Object.keys(u||{}).join(',')+'|rawU:'+rawU+'|rawB:'+rawB});
             }catch(ex){window.chrome.webview.postMessage({error:String(ex)});}})()";
 
             await Browser.CoreWebView2.ExecuteScriptAsync(script);
