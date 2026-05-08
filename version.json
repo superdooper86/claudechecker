@@ -1,5 +1,5 @@
 {
-  "version": "1.1.3",
-  "url": "https://github.com/superdooper86/claudechecker/releases/download/v1.1.3/ClaudeChecker.zip",
-  "notes": "## What's new in v1.1.3\n\n### UI polish\n- Limit headers now read \"5 Hour Limit\" and \"7 Day Limit\"\n- Tapping anywhere on the blue update banner opens the update window\n\n### Session Diary fix\n- Burn history is persisted across app launches — the sparkline populates immediately on first open instead of requiring a manual refresh\n\n### Window sizing fixes\n- The popover now resizes correctly when switching between the main view and settings\n- Background colour no longer shows through during the resize animation"
+  "version": "1.2.0",
+  "url": "https://github.com/superdooper86/claudechecker/releases/download/v1.2.0/ClaudeChecker.zip",
+  "notes": "## What's new in v1.2.0\n\n### Bug fixes\n- App now works for all users — org ID is fetched dynamically from the API instead of being hardcoded\n- Plan name (e.g. Pro, Max) now updates correctly on every refresh\n\n### Improvements\n- Plan name is read from the API rather than hardcoded\n- Bootstrap API call consolidated — org ID, email, and plan name fetched in a single request per refresh\n- Main panel no longer scrolls — popover auto-sizes to fit content\n- Session Diary card redesigned — sample count and avg burn rate shown left/right above the sparkline, Claude header removed"
 }
