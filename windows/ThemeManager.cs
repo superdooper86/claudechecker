@@ -72,6 +72,6 @@ public static class ThemeManager
 
     private static void Set(ResourceDictionary res, string key, Color color)
     {
-        if (res[key] is SolidColorBrush b) b.Color = color;
+        res[key] = new SolidColorBrush(color);
     }
 }
