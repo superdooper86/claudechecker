@@ -267,9 +267,10 @@ public class UsageViewModel : INotifyPropertyChanged
         await Application.Current.Dispatcher.InvokeAsync(() =>
         {
             if (!string.IsNullOrEmpty(email)) UserEmail = email;
-            if (limits.Count > 0)             Limits    = limits;
+            // Always show cards — real data if available, placeholders if not
+            Limits       = limits.Count > 0 ? limits : LoadPlaceholderLimits();
             IsSignedIn   = true;
-            ErrorMessage = limits.Count == 0 ? "Signed in — refreshing data…" : null;
+            ErrorMessage = null;
             LastUpdated  = limits.Count > 0 ? DateTime.Now : LastUpdated;
         });
     }
@@ -470,15 +471,17 @@ public class UsageViewModel : INotifyPropertyChanged
         return $"{diff.Hours}h {diff.Minutes}m";
     }
 
-    private void LoadPlaceholders()
+    private static List<AgentLimit> LoadPlaceholderLimits()
     {
         var now = DateTime.Now;
-        Limits =
+        return
         [
             new() { Window = WindowKind.FiveHour, UsedPercent = 0, TimeRemaining = "—", ResetDate = now.AddHours(1) },
             new() { Window = WindowKind.SevenDay,  UsedPercent = 0, TimeRemaining = "—", ResetDate = now.AddDays(7) },
         ];
     }
+
+    private void LoadPlaceholders() => Limits = LoadPlaceholderLimits();
 
     private void LoadBurnHistory()
     {
