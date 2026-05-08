@@ -48,6 +48,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 .environmentObject(updateManager)
         )
         hc.sizingOptions = .preferredContentSize
+        hc.view.wantsLayer = true
+        hc.view.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
         popover?.contentViewController = hc
 
         // React to limits or menubar toggle changes
@@ -237,4 +239,5 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
 }
+
 
