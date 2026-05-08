@@ -34,25 +34,34 @@ internal sealed class WebViewFetchWindow : Window
 
         await _wv.EnsureCoreWebView2Async(env);
 
-        var tcs = new TaskCompletionSource<string?>();
+        var tcs = new TaskCompletionSource<string?>(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        EventHandler<CoreWebView2NavigationCompletedEventArgs>? handler = null;
-        handler = async (_, e) =>
+        // Use WebMessageReceived so the script can post back asynchronously without
+        // relying on Promise-awaiting support in the WebView2 runtime version.
+        EventHandler<CoreWebView2WebMessageReceivedEventArgs>? msgHandler = null;
+        msgHandler = (_, args) =>
         {
-            _wv.CoreWebView2.NavigationCompleted -= handler;
+            _wv.CoreWebView2.WebMessageReceived -= msgHandler;
+            tcs.TrySetResult(args.WebMessageAsString);
+        };
+        _wv.CoreWebView2.WebMessageReceived += msgHandler;
+
+        EventHandler<CoreWebView2NavigationCompletedEventArgs>? navHandler = null;
+        navHandler = async (_, e) =>
+        {
+            _wv.CoreWebView2.NavigationCompleted -= navHandler;
             if (!e.IsSuccess) { tcs.TrySetResult(null); return; }
-            try
-            {
-                var result = await _wv.CoreWebView2.ExecuteScriptAsync(script);
-                tcs.TrySetResult(result);
-            }
+            try   { await _wv.CoreWebView2.ExecuteScriptAsync(script); }
             catch { tcs.TrySetResult(null); }
         };
-
-        _wv.CoreWebView2.NavigationCompleted += handler;
+        _wv.CoreWebView2.NavigationCompleted += navHandler;
         _wv.CoreWebView2.Navigate(navigateUrl);
 
-        _ = Task.Delay(timeoutMs).ContinueWith(_ => tcs.TrySetResult(null));
+        _ = Task.Delay(timeoutMs).ContinueWith(_ =>
+        {
+            _wv.CoreWebView2.WebMessageReceived -= msgHandler;
+            tcs.TrySetResult(null);
+        });
 
         return await tcs.Task;
     }
