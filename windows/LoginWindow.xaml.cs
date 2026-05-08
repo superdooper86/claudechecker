@@ -47,7 +47,6 @@ public partial class LoginWindow : Window
                     : "Complete sign-in, then click Done.";
             });
 
-            // Auto-close once we land on any claude.ai page that isn't the login flow
             if (!uri.Contains("/login") && !uri.Contains("/signin") && signedIn)
                 await SaveAndClose(cookies);
         };
@@ -67,9 +66,19 @@ public partial class LoginWindow : Window
 
         UsageViewModel.SaveCookies(cookies);
 
-        // Fetch bootstrap + usage from within WebView2 (already authenticated, no header issues)
         try
         {
+            // Use WebMessageReceived so the async script can post back without relying
+            // on Promise-awaiting support in the WebView2 runtime version.
+            var tcs = new TaskCompletionSource<string?>(TaskCreationOptions.RunContinuationsAsynchronously);
+            EventHandler<CoreWebView2WebMessageReceivedEventArgs>? msgHandler = null;
+            msgHandler = (_, args) =>
+            {
+                Browser.CoreWebView2.WebMessageReceived -= msgHandler;
+                tcs.TrySetResult(args.WebMessageAsString);
+            };
+            Browser.CoreWebView2.WebMessageReceived += msgHandler;
+
             const string script = @"(async()=>{try{
                 const h={headers:{accept:'application/json'}};
                 const b=await(await fetch('/api/bootstrap',h)).json();
@@ -84,16 +93,22 @@ public partial class LoginWindow : Window
                         if(Array.isArray(ol)&&ol.length>0){id=ol[0]?.uuid||null;orgSrc='orgs-list';}}catch(e2){}
                 }
                 if(!id){
-                    try{const pu=await(await fetch('/api/usage',h)).json();
-                        if(pu&&!pu.error)return{email:e,orgId:null,usage:pu,debug:'no-org|bkeys:'+bkeys+'|akeys:'+akeys};}catch(e3){}
-                    return{email:e,orgId:null,usage:null,debug:'no-org|bkeys:'+bkeys+'|akeys:'+akeys};
+                    let pu=null;
+                    try{pu=await(await fetch('/api/usage',h)).json();}catch(e3){}
+                    window.chrome.webview.postMessage(JSON.stringify({email:e,orgId:null,usage:(pu&&!pu.error?pu:null),debug:'no-org|bkeys:'+bkeys+'|akeys:'+akeys}));
+                    return;
                 }
                 const u=await(await fetch('/api/organizations/'+id+'/usage',h)).json();
-                return{email:e,orgId:id,usage:u,debug:'orgSrc:'+orgSrc+'|bkeys:'+bkeys+'|akeys:'+akeys};
-            }catch(ex){return{error:String(ex)};}})()";
+                window.chrome.webview.postMessage(JSON.stringify({email:e,orgId:id,usage:u,debug:'orgSrc:'+orgSrc+'|bkeys:'+bkeys+'|akeys:'+akeys}));
+            }catch(ex){window.chrome.webview.postMessage(JSON.stringify({error:String(ex)}));}})()";
 
-            var json = await Browser.CoreWebView2.ExecuteScriptAsync(script);
-            if (json != "null" && !string.IsNullOrEmpty(json))
+            await Browser.CoreWebView2.ExecuteScriptAsync(script);
+
+            // Wait up to 15 s for the script to post its message
+            var completed = await Task.WhenAny(tcs.Task, Task.Delay(15000));
+            var json = completed == tcs.Task ? tcs.Task.Result : null;
+
+            if (!string.IsNullOrEmpty(json))
             {
                 using var doc = JsonDocument.Parse(json);
                 var root = doc.RootElement;
@@ -110,12 +125,23 @@ public partial class LoginWindow : Window
                 if (root.TryGetProperty("debug", out var dbg) && dbg.ValueKind == JsonValueKind.String)
                     AppSettings.Default.DebugInfo = dbg.GetString() ?? "";
                 else if (root.TryGetProperty("error", out var err))
-                    AppSettings.Default.DebugInfo = "error:" + err.GetRawText();
+                    AppSettings.Default.DebugInfo = "JS error: " + err.GetRawText();
+                else
+                    AppSettings.Default.DebugInfo = "timeout or empty message";
 
                 AppSettings.Default.Save();
             }
+            else
+            {
+                AppSettings.Default.DebugInfo = json == null ? "script timeout (15s)" : "empty message";
+                AppSettings.Default.Save();
+            }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            AppSettings.Default.DebugInfo = "exception: " + ex.Message;
+            AppSettings.Default.Save();
+        }
 
         await Dispatcher.InvokeAsync(() => DialogResult = true);
     }
