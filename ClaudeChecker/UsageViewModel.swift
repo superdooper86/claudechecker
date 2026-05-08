@@ -3,7 +3,6 @@ import WebKit
 
 @MainActor
 class UsageViewModel: ObservableObject {
-    static let orgId = "daf626a9-4924-4ff3-ba98-23b523062f8e"
     @Published var limits: [AgentLimit] = []
     @Published var isLoading = false
     @Published var lastUpdated: Date?
@@ -26,14 +25,14 @@ class UsageViewModel: ObservableObject {
         }
     }
 
+    private var cachedOrgId: String?
     private var burnHistoryStore: [String: [Double]] = [:]
     private let maxHistorySamples = 24
-    private var cachedOrgId: String?
     private var previousPercents: [String: Double] = [:]
     private var firedThresholds: [String: Set<Int>] = [:]
 
     init() {
-        cachedOrgId = UserDefaults.standard.string(forKey: "claude_org_id") ?? Self.orgId
+        cachedOrgId = UserDefaults.standard.string(forKey: "claude_org_id")
         let saved = UserDefaults.standard.double(forKey: "refresh_interval")
         refreshInterval = saved > 0 ? saved : 60
         showInMenuBar = UserDefaults.standard.object(forKey: "show_in_menubar") as? Bool ?? true
@@ -49,6 +48,8 @@ class UsageViewModel: ObservableObject {
         let records = await store.dataRecords(ofTypes: types)
         let claudeRecords = records.filter { $0.displayName.contains("claude.ai") }
         await store.removeData(ofTypes: types, for: claudeRecords)
+        cachedOrgId = nil
+        UserDefaults.standard.removeObject(forKey: "claude_org_id")
         isSignedIn = false
         isNotAuthenticated = true
         lastUpdated = nil
@@ -66,11 +67,21 @@ class UsageViewModel: ObservableObject {
         defer { isLoading = false }
 
         do {
-            let orgId = cachedOrgId!
-            async let usageFetch        = fetchUsage(orgId: orgId)
-            async let prepaidFetch      = fetchPrepaidCredits(orgId: orgId)
-            async let overageFetch      = fetchOverageSpendLimit(orgId: orgId)
-            async let emailFetch        = fetchUserEmail()
+            // Fetch org ID dynamically if not cached
+            if cachedOrgId == nil {
+                cachedOrgId = try await fetchOrgId()
+                if let id = cachedOrgId {
+                    UserDefaults.standard.set(id, forKey: "claude_org_id")
+                }
+            }
+            guard let orgId = cachedOrgId else {
+                throw AppError.notAuthenticated
+            }
+
+            async let usageFetch   = fetchUsage(orgId: orgId)
+            async let prepaidFetch = fetchPrepaidCredits(orgId: orgId)
+            async let overageFetch = fetchOverageSpendLimit(orgId: orgId)
+            async let emailFetch   = fetchUserEmail()
             let (usage, prepaid, overage, email) = try await (usageFetch, prepaidFetch, overageFetch, emailFetch)
             if let email { userEmail = email }
             limits = buildLimits(from: usage)
@@ -110,25 +121,62 @@ class UsageViewModel: ObservableObject {
         }
     }
 
+    // MARK: - Fetch org ID from bootstrap
+
+    private func fetchOrgId() async throws -> String? {
+        let url = URL(string: "https://claude.ai/api/bootstrap")!
+        var req = URLRequest(url: url)
+        req.setValue("application/json", forHTTPHeaderField: "accept")
+        let cookies = await WKWebsiteDataStore.default().httpCookieStore.allCookies()
+        let claudeCookies = cookies.filter { $0.domain.contains("claude.ai") }
+        if claudeCookies.isEmpty { throw AppError.notAuthenticated }
+        if let header = HTTPCookie.requestHeaderFields(with: claudeCookies)["Cookie"] {
+            req.setValue(header, forHTTPHeaderField: "Cookie")
+        }
+        let (data, response) = try await URLSession.shared.data(for: req)
+        guard let http = response as? HTTPURLResponse else { throw AppError.networkError }
+        if http.statusCode == 401 || http.statusCode == 403 { throw AppError.notAuthenticated }
+        guard http.statusCode == 200 else { throw AppError.networkError }
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
+
+        // account.memberships[0].organization.uuid
+        if let account = json["account"] as? [String: Any],
+           let memberships = account["memberships"] as? [[String: Any]],
+           let org = memberships.first?["organization"] as? [String: Any],
+           let uuid = org["uuid"] as? String {
+            return uuid
+        }
+        // root memberships (older API shape)
+        if let memberships = json["memberships"] as? [[String: Any]],
+           let org = memberships.first?["organization"] as? [String: Any],
+           let uuid = org["uuid"] as? String {
+            return uuid
+        }
+        // root organizations array
+        if let orgs = json["organizations"] as? [[String: Any]],
+           let uuid = orgs.first?["uuid"] as? String {
+            return uuid
+        }
+        return nil
+    }
+
     // MARK: - Fetch usage
+
+    private func claudeCookieHeader() async -> String? {
+        let cookies = await WKWebsiteDataStore.default().httpCookieStore.allCookies()
+        let claudeCookies = cookies.filter { $0.domain.contains("claude.ai") }
+        return HTTPCookie.requestHeaderFields(with: claudeCookies)["Cookie"]
+    }
 
     private func fetchUsage(orgId: String) async throws -> UsageResponse {
         let url = URL(string: "https://claude.ai/api/organizations/\(orgId)/usage")!
         var req = URLRequest(url: url)
         req.setValue("application/json", forHTTPHeaderField: "accept")
-
-        // Inject cookies from WKWebsiteDataStore (shared with browser/Claude app)
-        let cookies = await WKWebsiteDataStore.default().httpCookieStore.allCookies()
-        let claudeCookies = cookies.filter { $0.domain.contains("claude.ai") }
-        if let header = HTTPCookie.requestHeaderFields(with: claudeCookies)["Cookie"] {
-            req.setValue(header, forHTTPHeaderField: "Cookie")
-        }
-
+        if let cookie = await claudeCookieHeader() { req.setValue(cookie, forHTTPHeaderField: "Cookie") }
         let (data, response) = try await URLSession.shared.data(for: req)
         guard let http = response as? HTTPURLResponse else { throw AppError.networkError }
         if http.statusCode == 401 || http.statusCode == 403 { throw AppError.notAuthenticated }
         guard http.statusCode == 200 else { throw AppError.networkError }
-
         return try JSONDecoder().decode(UsageResponse.self, from: data)
     }
 
@@ -136,11 +184,7 @@ class UsageViewModel: ObservableObject {
         let url = URL(string: "https://claude.ai/api/bootstrap")!
         var req = URLRequest(url: url)
         req.setValue("application/json", forHTTPHeaderField: "accept")
-        let cookies = await WKWebsiteDataStore.default().httpCookieStore.allCookies()
-        let claudeCookies = cookies.filter { $0.domain.contains("claude.ai") }
-        if let header = HTTPCookie.requestHeaderFields(with: claudeCookies)["Cookie"] {
-            req.setValue(header, forHTTPHeaderField: "Cookie")
-        }
+        if let cookie = await claudeCookieHeader() { req.setValue(cookie, forHTTPHeaderField: "Cookie") }
         let (data, response) = try await URLSession.shared.data(for: req)
         guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { return nil }
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
@@ -153,11 +197,7 @@ class UsageViewModel: ObservableObject {
         let url = URL(string: "https://claude.ai/api/organizations/\(orgId)/prepaid/credits")!
         var req = URLRequest(url: url)
         req.setValue("application/json", forHTTPHeaderField: "accept")
-        let cookies = await WKWebsiteDataStore.default().httpCookieStore.allCookies()
-        let claudeCookies = cookies.filter { $0.domain.contains("claude.ai") }
-        if let header = HTTPCookie.requestHeaderFields(with: claudeCookies)["Cookie"] {
-            req.setValue(header, forHTTPHeaderField: "Cookie")
-        }
+        if let cookie = await claudeCookieHeader() { req.setValue(cookie, forHTTPHeaderField: "Cookie") }
         let (data, response) = try await URLSession.shared.data(for: req)
         guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { return nil }
         return try? JSONDecoder().decode(PrepaidCredits.self, from: data)
@@ -167,11 +207,7 @@ class UsageViewModel: ObservableObject {
         let url = URL(string: "https://claude.ai/api/organizations/\(orgId)/overage_spend_limit")!
         var req = URLRequest(url: url)
         req.setValue("application/json", forHTTPHeaderField: "accept")
-        let cookies = await WKWebsiteDataStore.default().httpCookieStore.allCookies()
-        let claudeCookies = cookies.filter { $0.domain.contains("claude.ai") }
-        if let header = HTTPCookie.requestHeaderFields(with: claudeCookies)["Cookie"] {
-            req.setValue(header, forHTTPHeaderField: "Cookie")
-        }
+        if let cookie = await claudeCookieHeader() { req.setValue(cookie, forHTTPHeaderField: "Cookie") }
         let (data, response) = try await URLSession.shared.data(for: req)
         guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { return nil }
         return try? JSONDecoder().decode(OverageSpendLimit.self, from: data)
@@ -245,14 +281,11 @@ class UsageViewModel: ObservableObject {
 
     private func checkLimitNotifications(for limits: [AgentLimit]) {
         let thresholds = [80, 95]
-
         for limit in limits {
             let key = limit.window.rawValue
             let curr = limit.usedPercent
             let prev = previousPercents[key]
             var fired = firedThresholds[key] ?? []
-
-            // Threshold warnings (80% and 95%)
             for t in thresholds {
                 let threshold = Double(t)
                 guard curr >= threshold, prev ?? threshold < threshold, !fired.contains(t) else { continue }
@@ -263,8 +296,6 @@ class UsageViewModel: ObservableObject {
                     userInfo: ["windowName": limit.window.displayName, "percent": t]
                 )
             }
-
-            // Reset detection: was high, now low
             if let prev, prev > 50, curr < 20 {
                 fired.removeAll()
                 NotificationCenter.default.post(
@@ -273,7 +304,6 @@ class UsageViewModel: ObservableObject {
                     userInfo: ["windowName": limit.window.displayName]
                 )
             }
-
             firedThresholds[key] = fired
             previousPercents[key] = curr
         }
@@ -317,4 +347,3 @@ extension Notification.Name {
     static let limitReset = Notification.Name("limitReset")
     static let openUpdateSheet = Notification.Name("openUpdateSheet")
 }
-
