@@ -95,14 +95,12 @@ public class UsageViewModel : INotifyPropertyChanged
                 return;
             }
 
-            // Try HttpClient first (fast path) — may be rejected by server CORS/header checks
+            // HttpClient refresh — WebView2 is NOT used here to avoid spawning a heavy
+            // browser process every refresh cycle (causes memory accumulation).
+            // SaveAndClose at login time is responsible for fetching live data via WebView2.
             var (limits, overage, prepaid, email, orgId, ok) = hasCookies
                 ? await TryHttpRefreshAsync(cookies)
                 : ([], null, null, null, null, false);
-
-            // Fall back to WebView2 (uses the shared browser session, not HttpClient)
-            if (!ok)
-                (limits, email, orgId) = await TryWebView2RefreshAsync();
 
             // Fill in any blanks from cached values saved at login time
             if (string.IsNullOrEmpty(email))  email  = AppSettings.Default.Email;
@@ -324,6 +322,14 @@ public class UsageViewModel : INotifyPropertyChanged
         http.DefaultRequestHeaders.Add("User-Agent",
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
             "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36");
+        http.DefaultRequestHeaders.Add("Origin",           "https://claude.ai");
+        http.DefaultRequestHeaders.Add("Referer",          "https://claude.ai/");
+        http.DefaultRequestHeaders.Add("sec-fetch-dest",   "empty");
+        http.DefaultRequestHeaders.Add("sec-fetch-mode",   "cors");
+        http.DefaultRequestHeaders.Add("sec-fetch-site",   "same-origin");
+        http.DefaultRequestHeaders.Add("sec-ch-ua",        "\"Chromium\";v=\"124\", \"Google Chrome\";v=\"124\"");
+        http.DefaultRequestHeaders.Add("sec-ch-ua-mobile", "?0");
+        http.DefaultRequestHeaders.Add("sec-ch-ua-platform", "\"Windows\"");
         var cookieHeader = string.Join("; ", cookies.Select(c => $"{c.Name}={c.Value}"));
         http.DefaultRequestHeaders.Add("Cookie", cookieHeader);
         return http;
