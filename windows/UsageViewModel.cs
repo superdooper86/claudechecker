@@ -13,7 +13,6 @@ namespace ClaudeCheckerWindows;
 
 public class UsageViewModel : INotifyPropertyChanged
 {
-    private static readonly string OrgId = "daf626a9-4924-4ff3-ba98-23b523062f8e";
     private static readonly JsonSerializerOptions JsonOpts = new() { PropertyNameCaseInsensitive = true };
 
     private List<AgentLimit> _limits = [];
@@ -83,21 +82,37 @@ public class UsageViewModel : INotifyPropertyChanged
             {
                 await Application.Current.Dispatcher.InvokeAsync(() =>
                 {
-                    IsSignedIn = false;
+                    IsSignedIn   = false;
                     ErrorMessage = "Not signed in — click Sign In to authenticate.";
-                    IsLoading = false;
+                    IsLoading    = false;
                 });
                 return;
             }
 
             using var http = BuildClient(cookies);
 
-            var usageTask   = FetchAsync<UsageResponse>(http, $"https://claude.ai/api/organizations/{OrgId}/usage");
-            var overageTask = FetchAsync<OverageSpendLimit>(http, $"https://claude.ai/api/organizations/{OrgId}/overage_spend_limit");
-            var prepaidTask = FetchAsync<PrepaidCredits>(http, $"https://claude.ai/api/organizations/{OrgId}/prepaid/credits");
-            var emailTask   = FetchEmailAsync(http);
+            // Bootstrap gives us email + org ID. If it fails, cookies are invalid.
+            var (email, orgId) = await FetchBootstrapAsync(http);
+            if (string.IsNullOrEmpty(orgId))
+            {
+                await Application.Current.Dispatcher.InvokeAsync(() =>
+                {
+                    IsSignedIn   = false;
+                    ErrorMessage = "Session expired — click Sign In to re-authenticate.";
+                    IsLoading    = false;
+                });
+                return;
+            }
 
-            await Task.WhenAll(usageTask, overageTask, prepaidTask, emailTask);
+            // Cache org ID for resilience
+            AppSettings.Default.OrgId = orgId;
+            AppSettings.Default.Save();
+
+            var usageTask   = FetchAsync<UsageResponse>(http, $"https://claude.ai/api/organizations/{orgId}/usage");
+            var overageTask = FetchAsync<OverageSpendLimit>(http, $"https://claude.ai/api/organizations/{orgId}/overage_spend_limit");
+            var prepaidTask = FetchAsync<PrepaidCredits>(http, $"https://claude.ai/api/organizations/{orgId}/prepaid/credits");
+
+            await Task.WhenAll(usageTask, overageTask, prepaidTask);
 
             var usage  = usageTask.Result;
             var limits = BuildLimits(usage);
@@ -115,14 +130,14 @@ public class UsageViewModel : INotifyPropertyChanged
 
             await Application.Current.Dispatcher.InvokeAsync(() =>
             {
-                Limits        = limits;
-                Overage       = overageTask.Result;
-                Prepaid       = prepaidTask.Result;
-                UserEmail     = emailTask.Result ?? UserEmail;
-                IsSignedIn    = true;
-                ErrorMessage  = null;
-                LastUpdated   = DateTime.Now;
-                IsLoading     = false;
+                Limits       = limits;
+                Overage      = overageTask.Result;
+                Prepaid      = prepaidTask.Result;
+                UserEmail    = email ?? UserEmail;
+                IsSignedIn   = true;
+                ErrorMessage = null;
+                LastUpdated  = DateTime.Now;
+                IsLoading    = false;
             });
         }
         catch (Exception ex)
@@ -138,6 +153,7 @@ public class UsageViewModel : INotifyPropertyChanged
     public async Task SignOutAsync()
     {
         AppSettings.Default.CookieStore = "";
+        AppSettings.Default.OrgId       = "";
         AppSettings.Default.Save();
 
         await Application.Current.Dispatcher.InvokeAsync(() =>
@@ -149,7 +165,6 @@ public class UsageViewModel : INotifyPropertyChanged
         });
     }
 
-    // Cookie store: we persist cookies as JSON in settings after login
     public static async Task<List<(string Name, string Value, string Domain, string Path)>> GetCookiesAsync()
     {
         var raw = AppSettings.Default.CookieStore;
@@ -178,6 +193,7 @@ public class UsageViewModel : INotifyPropertyChanged
         var handler = new HttpClientHandler { UseCookies = false };
         var http    = new HttpClient(handler);
         http.DefaultRequestHeaders.Add("accept", "application/json");
+        http.DefaultRequestHeaders.Add("anthropic-client-platform", "web");
         var cookieHeader = string.Join("; ", cookies.Select(c => $"{c.Name}={c.Value}"));
         http.DefaultRequestHeaders.Add("Cookie", cookieHeader);
         return http;
@@ -195,15 +211,63 @@ public class UsageViewModel : INotifyPropertyChanged
         catch { return null; }
     }
 
-    private static async Task<string?> FetchEmailAsync(HttpClient http)
+    // Returns (email, orgId). orgId null means auth failed.
+    private static async Task<(string? Email, string? OrgId)> FetchBootstrapAsync(HttpClient http)
     {
         try
         {
             var resp = await http.GetAsync("https://claude.ai/api/bootstrap");
+            if (!resp.IsSuccessStatusCode) return (null, null);
+
+            var json = await resp.Content.ReadAsStringAsync();
+            using var doc = JsonDocument.Parse(json);
+            var root      = doc.RootElement;
+
+            string? email = null;
+            string? orgId = null;
+
+            if (root.TryGetProperty("account", out var acct) &&
+                acct.TryGetProperty("email_address", out var em))
+                email = em.GetString();
+
+            // Try memberships[0].organization.uuid
+            if (root.TryGetProperty("memberships", out var mems) && mems.GetArrayLength() > 0)
+            {
+                var first = mems[0];
+                if (first.TryGetProperty("organization", out var org) &&
+                    org.TryGetProperty("uuid", out var uuid))
+                    orgId = uuid.GetString();
+            }
+
+            // Fall back to cached org ID
+            if (string.IsNullOrEmpty(orgId) && !string.IsNullOrEmpty(AppSettings.Default.OrgId))
+                orgId = AppSettings.Default.OrgId;
+
+            // Last resort: dedicated organizations endpoint
+            if (string.IsNullOrEmpty(orgId))
+                orgId = await FetchOrgIdFromListAsync(http);
+
+            return (email, orgId);
+        }
+        catch { return (null, null); }
+    }
+
+    private static async Task<string?> FetchOrgIdFromListAsync(HttpClient http)
+    {
+        try
+        {
+            var resp = await http.GetAsync("https://claude.ai/api/organizations");
             if (!resp.IsSuccessStatusCode) return null;
             var json = await resp.Content.ReadAsStringAsync();
-            var boot = JsonSerializer.Deserialize<BootstrapResponse>(json, JsonOpts);
-            return boot?.Account?.EmailAddress;
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+            if (root.ValueKind == JsonValueKind.Array && root.GetArrayLength() > 0)
+            {
+                var first = root[0];
+                if (first.TryGetProperty("uuid", out var uuid))
+                    return uuid.GetString();
+            }
+            return null;
         }
         catch { return null; }
     }
