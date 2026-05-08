@@ -28,11 +28,11 @@ jobs:
 
       - name: Publish
         run: |
-          dotnet publish windows/ClaudeCheckerWindows.csproj \
-            -c Release -r win-x64 \
-            --self-contained true \
-            -p:PublishSingleFile=true \
-            -p:Version=${{ steps.version.outputs.version }} \
+          dotnet publish windows/ClaudeCheckerWindows.csproj `
+            -c Release -r win-x64 `
+            --self-contained true `
+            -p:PublishSingleFile=true `
+            -p:Version=${{ steps.version.outputs.version }} `
             -o publish
 
       - name: Zip
@@ -46,26 +46,26 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
+          notes=$(cat windows/RELEASE_NOTES.md 2>/dev/null || echo "Windows release ${{ steps.version.outputs.version }}")
           gh release create "$GITHUB_REF_NAME" ClaudeChecker-Windows.zip \
             --title "$GITHUB_REF_NAME" \
-            --notes "$(cat windows/RELEASE_NOTES.md 2>/dev/null || echo 'Windows release ${{ steps.version.outputs.version }}')"
+            --notes "$notes"
 
-      - name: Update version-windows.json
+      - name: Update version-windows.json on main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
           notes=$(cat windows/RELEASE_NOTES.md 2>/dev/null || echo "Windows release ${{ steps.version.outputs.version }}")
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch origin main
+          git checkout main
           jq -n \
             --arg version "${{ steps.version.outputs.version }}" \
             --arg url "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/ClaudeChecker-Windows.zip" \
             --arg notes "$notes" \
             '{version: $version, url: $url, notes: $notes}' > version-windows.json
-
-      - name: Commit version-windows.json
-        shell: bash
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
           git add version-windows.json
           git commit -m "Windows release ${{ github.ref_name }}"
-          git pull --rebase origin main
-          git push origin HEAD:main
+          git push origin main
