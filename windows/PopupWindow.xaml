@@ -173,9 +173,15 @@
                                     <TextBlock Text="Built by superdooper86 &amp; claude"
                                                FontSize="11" Foreground="{DynamicResource SecondaryBrush}"/>
                                 </StackPanel>
-                                <Button Grid.Column="2" x:Name="CheckUpdateButton"
-                                        Style="{StaticResource SmallButton}"
-                                        Click="CheckUpdate_Click" VerticalAlignment="Center"/>
+                                <StackPanel Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right">
+                                    <Button x:Name="CheckUpdateButton"
+                                            Style="{StaticResource SmallButton}"
+                                            Click="CheckUpdate_Click"/>
+                                    <TextBlock x:Name="UpdateAvailableText" FontSize="10"
+                                               Foreground="{DynamicResource BlueBrush}"
+                                               HorizontalAlignment="Center"
+                                               Visibility="Collapsed" Margin="0,4,0,0"/>
+                                </StackPanel>
                             </Grid>
                         </Border>
 
