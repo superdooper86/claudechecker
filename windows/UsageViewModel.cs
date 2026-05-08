@@ -212,7 +212,7 @@ public class UsageViewModel : INotifyPropertyChanged
                 host.Show();
                 try   { return await host.FetchAsync("https://claude.ai", script); }
                 finally { host.Close(); }
-            }).Task;
+            }).Task.Unwrap();
 
             if (resultJson == null || resultJson == "null") return ([], null, null);
 
