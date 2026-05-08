@@ -333,11 +333,18 @@ public partial class PopupWindow : Window
         var login = new LoginWindow { Owner = this };
         if (login.ShowDialog() == true)
         {
-            // Brief pause so the LoginWindow WebView2 fully releases its user data folder lock
-            // before RefreshAsync may create another WebView2 on the same folder.
-            await Task.Delay(1500);
-            await VM.RefreshAsync();
+            // Show cached data from SaveAndClose immediately (no WebView2 needed)
+            await VM.LoadFromCacheAsync();
             InitSettings();
+            ShowMain();
+
+            // Full refresh in background after WebView2 folder is definitely released
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(3000);
+                await VM.RefreshAsync();
+                await Application.Current.Dispatcher.InvokeAsync(InitSettings);
+            });
         }
         Show();
         Activate();
