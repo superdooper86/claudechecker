@@ -1,4 +1,4 @@
-## What's new in beta.31
+## What's new in beta.32
 
-- Fix: placeholder cards now show after sign-in when no usage data is cached yet (main panel no longer goes blank)
-- Debug: raw usage API response now included in debug banner so we can see what the endpoint returns
+- Fix: usage response fields were completely wrong — five_hour/seven_day not claude_ai_default_5h/claude_ai_default (this is why limits never loaded)
+- Fix: placeholder cards shown while data loads instead of blank panel
