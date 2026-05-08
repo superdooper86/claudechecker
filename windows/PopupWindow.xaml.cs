@@ -287,12 +287,15 @@ public partial class PopupWindow : Window
         var dbg = AppSettings.Default.DebugInfo;
         if (!string.IsNullOrEmpty(dbg))
         {
-            DebugText.Text       = dbg;
-            DebugText.Visibility = Visibility.Visible;
+            DebugText.Text         = dbg;
+            DebugText.Visibility   = Visibility.Visible;
+            DebugBannerText.Text   = dbg;
+            DebugBanner.Visibility = Visibility.Visible;
         }
         else
         {
-            DebugText.Visibility = Visibility.Collapsed;
+            DebugText.Visibility   = Visibility.Collapsed;
+            DebugBanner.Visibility = Visibility.Collapsed;
         }
     }
 
