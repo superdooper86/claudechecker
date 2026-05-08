@@ -56,17 +56,19 @@ public class GaugeControl : FrameworkElement
             CultureInfo.CurrentCulture, FlowDirection.LeftToRight,
             new Typeface(new FontFamily("Segoe UI"), FontStyles.Normal, FontWeights.Bold, FontStretches.Normal),
             14, new SolidColorBrush(textColor), dpi);
-        dc.DrawText(pctText, new Point(cx - pctText.Width / 2, cy - pctText.Height - 1));
-
         var sub = new FormattedText(
-            "Updated\nnow",
+            "used",
             CultureInfo.CurrentCulture, FlowDirection.LeftToRight,
-            new Typeface("Segoe UI"), 7,
+            new Typeface("Segoe UI"), 8,
             new SolidColorBrush(subColor), dpi)
         {
             TextAlignment = TextAlignment.Center
         };
-        dc.DrawText(sub, new Point(cx - sub.Width / 2, cy + 2));
+
+        var totalHeight = pctText.Height + 2 + sub.Height;
+        var startY      = cy - totalHeight / 2;
+        dc.DrawText(pctText, new Point(cx - pctText.Width / 2, startY));
+        dc.DrawText(sub,     new Point(cx - sub.Width     / 2, startY + pctText.Height + 2));
     }
 
     private static void DrawArc(DrawingContext dc, double cx, double cy, double r,
