@@ -3,249 +3,245 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:ctrl="clr-namespace:ClaudeCheckerWindows.Controls"
         Title="ClaudeChecker"
-        Width="480"
-        SizeToContent="Height"
-        WindowStyle="None"
-        AllowsTransparency="True"
-        Background="Transparent"
-        ShowInTaskbar="False"
-        Topmost="True"
+        Width="480" Height="660"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource BackgroundBrush}"
+        FontFamily="Segoe UI"
+        ShowInTaskbar="True"
         ResizeMode="NoResize">
 
-    <Border Background="{StaticResource BackgroundBrush}"
-            CornerRadius="12"
-            BorderBrush="{StaticResource BorderBrush}"
-            BorderThickness="0.5">
-        <Border.Effect>
-            <DropShadowEffect BlurRadius="24" ShadowDepth="4" Opacity="0.5" Color="Black"/>
-        </Border.Effect>
+    <Grid>
+        <!-- Main panel -->
+        <DockPanel x:Name="MainPanel">
 
-        <Grid>
-            <!-- Main panel -->
-            <StackPanel x:Name="MainPanel">
-
-                <!-- Header -->
-                <Grid Margin="16,11">
+            <!-- Update banner -->
+            <Border x:Name="UpdateBanner" DockPanel.Dock="Top" Visibility="Collapsed"
+                    Background="#E8F2FB" BorderBrush="#B3D6F5" BorderThickness="0,0,0,1"
+                    Cursor="Hand" MouseLeftButtonUp="UpdateBanner_Click">
+                <Grid Margin="16,10">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="6"/>
-                        <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
-
-                    <Image Grid.Column="0" Width="24" Height="24"
-                           Source="Assets/icon.png" RenderOptions.BitmapScalingMode="HighQuality"/>
-
-                    <TextBlock Grid.Column="1" Text="ClaudeChecker"
-                               FontSize="14" FontWeight="SemiBold" Foreground="White"
-                               VerticalAlignment="Center" Margin="10,0,0,0"/>
-
-                    <Button Grid.Column="2" Style="{StaticResource IconButton}"
-                            Click="Settings_Click" x:Name="SettingsButton">
-                        <TextBlock Text="⚙" FontSize="11" Foreground="{StaticResource SecondaryBrush}"/>
-                    </Button>
-                    <Button Grid.Column="4" Style="{StaticResource IconButton}"
-                            Click="Close_Click">
-                        <TextBlock Text="✕" FontSize="11" Foreground="{StaticResource SecondaryBrush}"/>
-                    </Button>
+                    <TextBlock Grid.Column="0" Text="⬇" FontSize="14"
+                               Foreground="{StaticResource BlueBrush}" VerticalAlignment="Center"/>
+                    <StackPanel Grid.Column="1" Margin="10,0">
+                        <TextBlock x:Name="UpdateBannerTitle" FontSize="12" FontWeight="SemiBold"
+                                   Foreground="{StaticResource TextBrush}"/>
+                        <TextBlock Text="Click to view release notes and install."
+                                   FontSize="11" Foreground="{StaticResource SecondaryBrush}"/>
+                    </StackPanel>
+                    <Button Grid.Column="2" Content="Update" Style="{StaticResource SmallButton}"
+                            Foreground="{StaticResource BlueBrush}" Click="UpdateBanner_Click"/>
                 </Grid>
+            </Border>
 
-                <Rectangle Height="0.5" Fill="{StaticResource BorderBrush}" Opacity="0.4"/>
-
-                <!-- Update banner -->
-                <Border x:Name="UpdateBanner" Visibility="Collapsed"
-                        Background="#0A3B82F6" Cursor="Hand" MouseLeftButtonUp="UpdateBanner_Click">
-                    <Grid Margin="16,10">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="⬇" FontSize="14"
-                                   Foreground="{StaticResource BlueBrush}" VerticalAlignment="Center"/>
-                        <StackPanel Grid.Column="1" Margin="10,0">
-                            <TextBlock x:Name="UpdateBannerTitle" FontSize="12" FontWeight="SemiBold" Foreground="White"/>
-                            <TextBlock Text="Tap to view what's new &amp; install."
-                                       FontSize="11" Foreground="{StaticResource SecondaryBrush}"/>
-                        </StackPanel>
-                        <Button Grid.Column="2" Content="Update"
-                                Style="{StaticResource SmallButton}"
-                                Background="{StaticResource BlueBrush}"
-                                Foreground="White" Click="UpdateBanner_Click"/>
-                    </Grid>
-                    <Border.Effect>
-                        <DropShadowEffect ShadowDepth="0" BlurRadius="0" Opacity="0"/>
-                    </Border.Effect>
-                </Border>
-                <Rectangle x:Name="UpdateBannerDiv" Height="0.5" Fill="{StaticResource BorderBrush}"
-                           Opacity="0.3" Visibility="Collapsed"/>
-
-                <!-- Limit cards -->
-                <ScrollViewer VerticalScrollBarVisibility="Hidden" MaxHeight="600">
-                    <StackPanel x:Name="CardsPanel" Margin="0,0,0,4"/>
-                </ScrollViewer>
-
-                <Rectangle Height="0.5" Fill="{StaticResource BorderBrush}" Opacity="0.3"/>
-
-                <!-- Footer -->
-                <Grid Margin="16,9">
+            <!-- Footer -->
+            <Border DockPanel.Dock="Bottom" BorderBrush="{StaticResource BorderBrush}"
+                    BorderThickness="0,1,0,0" Background="#FAFAFA">
+                <Grid Margin="12,8">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="8"/>
                         <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="8"/>
+                        <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
-                    <TextBlock x:Name="LastUpdatedText" Grid.Column="0"
-                               FontSize="10" Foreground="#60888888" VerticalAlignment="Center"/>
-                    <ProgressBar x:Name="LoadingBar" Grid.Column="1"
-                                 IsIndeterminate="True" Width="14" Height="14"
-                                 Visibility="Collapsed" Style="{x:Null}"/>
-                    <Button Grid.Column="3" Content="↻  Refresh"
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                        <ProgressBar x:Name="LoadingBar" IsIndeterminate="True"
+                                     Width="12" Height="12" Visibility="Collapsed"
+                                     Style="{x:Null}" Margin="0,0,6,0"/>
+                        <TextBlock x:Name="LastUpdatedText" FontSize="11"
+                                   Foreground="{StaticResource SecondaryBrush}" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <Button Grid.Column="1" Content="↻  Refresh"
                             Style="{StaticResource SmallButton}" Click="Refresh_Click"/>
+                    <Button Grid.Column="3" x:Name="SettingsButton" Content="⚙  Settings"
+                            Style="{StaticResource SmallButton}" Click="Settings_Click"/>
                 </Grid>
-            </StackPanel>
+            </Border>
 
-            <!-- Settings panel -->
-            <Border x:Name="SettingsPanel" Visibility="Collapsed"
-                    Background="{StaticResource BackgroundBrush}" CornerRadius="12">
-                <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="700">
-                    <StackPanel Margin="16">
+            <!-- Cards scroll area -->
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <StackPanel x:Name="CardsPanel" Margin="0,4,0,4"/>
+            </ScrollViewer>
+        </DockPanel>
 
+        <!-- Settings panel -->
+        <Border x:Name="SettingsPanel" Visibility="Collapsed"
+                Background="{StaticResource BackgroundBrush}">
+            <DockPanel>
+                <Border DockPanel.Dock="Top" BorderBrush="{StaticResource BorderBrush}"
+                        BorderThickness="0,0,0,1" Background="#FAFAFA" Padding="12,10">
+                    <Grid>
                         <Button Content="← Back" HorizontalAlignment="Left"
-                                Style="{StaticResource SmallButton}"
-                                BorderThickness="0" Foreground="{StaticResource BlueBrush}"
-                                Click="BackFromSettings_Click" Margin="0,0,0,12"/>
+                                Style="{StaticResource SmallButton}" BorderThickness="0"
+                                Foreground="{StaticResource BlueBrush}" Background="Transparent"
+                                Click="BackFromSettings_Click"/>
+                        <TextBlock Text="Settings" FontSize="14" FontWeight="SemiBold"
+                                   Foreground="{StaticResource TextBrush}"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Grid>
+                </Border>
 
-                        <TextBlock Text="Settings" FontSize="16" FontWeight="SemiBold"
-                                   Foreground="White" Margin="0,0,0,16"/>
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="20,16,20,20">
 
-                        <!-- Auth -->
-                        <TextBlock Text="🔐  Authentication" Style="{StaticResource HeaderText}" Margin="0,0,0,8"/>
-                        <StackPanel x:Name="AuthPanel" Margin="0,0,0,8"/>
-                        <TextBlock Text="Your session is stored locally and persists across restarts."
-                                   FontSize="11" Foreground="{StaticResource SecondaryBrush}"
-                                   TextWrapping="Wrap" Margin="0,0,0,8"/>
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
-                            <Button x:Name="SignInButton" Content="Sign In"
-                                    Style="{StaticResource SmallButton}" Click="SignIn_Click" Margin="0,0,8,0"/>
-                            <Button x:Name="SignOutButton" Content="Sign Out"
-                                    Style="{StaticResource SmallButton}" Click="SignOut_Click"
-                                    Foreground="#EF4444" Visibility="Collapsed"/>
-                        </StackPanel>
-
-                        <Rectangle Height="0.5" Fill="{StaticResource BorderBrush}" Margin="0,0,0,16"/>
-
-                        <!-- Beta channel -->
-                        <TextBlock Text="📡  Update channel" Style="{StaticResource HeaderText}" Margin="0,0,0,8"/>
-                        <Grid Margin="0,0,0,16">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
+                        <TextBlock Text="AUTHENTICATION" Style="{StaticResource HeaderText}" Margin="0,0,0,8"/>
+                        <Border Background="{StaticResource CardBrush}" CornerRadius="6"
+                                BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                                Padding="14,12" Margin="0,0,0,16">
                             <StackPanel>
-                                <TextBlock Text="Beta updates" FontSize="12" Foreground="White"/>
-                                <TextBlock Text="Receive early access builds — may be less stable"
-                                           FontSize="11" Foreground="{StaticResource SecondaryBrush}"/>
+                                <StackPanel x:Name="AuthPanel" Margin="0,0,0,10"/>
+                                <TextBlock Text="Your session is stored locally and persists across restarts."
+                                           FontSize="11" Foreground="{StaticResource SecondaryBrush}"
+                                           TextWrapping="Wrap" Margin="0,0,0,10"/>
+                                <StackPanel Orientation="Horizontal">
+                                    <Button x:Name="SignInButton" Content="Sign In"
+                                            Style="{StaticResource SmallButton}"
+                                            Click="SignIn_Click" Margin="0,0,8,0"/>
+                                    <Button x:Name="SignOutButton" Content="Sign Out"
+                                            Style="{StaticResource SmallButton}"
+                                            Click="SignOut_Click" Foreground="#C42B1C"
+                                            Visibility="Collapsed"/>
+                                </StackPanel>
                             </StackPanel>
-                            <CheckBox Grid.Column="1" x:Name="BetaToggle" VerticalAlignment="Center"
-                                      Checked="BetaToggle_Changed" Unchecked="BetaToggle_Changed"/>
-                        </Grid>
+                        </Border>
 
-                        <Rectangle Height="0.5" Fill="{StaticResource BorderBrush}" Margin="0,0,0,16"/>
+                        <TextBlock Text="UPDATE CHANNEL" Style="{StaticResource HeaderText}" Margin="0,0,0,8"/>
+                        <Border Background="{StaticResource CardBrush}" CornerRadius="6"
+                                BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                                Padding="14,12" Margin="0,0,0,16">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <TextBlock Text="Beta updates" FontSize="12" FontWeight="SemiBold"
+                                               Foreground="{StaticResource TextBrush}"/>
+                                    <TextBlock Text="Receive early access builds — may be less stable"
+                                               FontSize="11" Foreground="{StaticResource SecondaryBrush}"/>
+                                </StackPanel>
+                                <CheckBox Grid.Column="1" x:Name="BetaToggle" VerticalAlignment="Center"
+                                          Checked="BetaToggle_Changed" Unchecked="BetaToggle_Changed"/>
+                            </Grid>
+                        </Border>
 
-                        <!-- Refresh interval -->
-                        <TextBlock Text="⏱  Auto-refresh interval" Style="{StaticResource HeaderText}" Margin="0,0,0,8"/>
-                        <ComboBox x:Name="RefreshPicker" SelectionChanged="RefreshPicker_Changed"
-                                  Margin="0,0,0,16" FontSize="12"/>
+                        <TextBlock Text="AUTO-REFRESH" Style="{StaticResource HeaderText}" Margin="0,0,0,8"/>
+                        <Border Background="{StaticResource CardBrush}" CornerRadius="6"
+                                BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                                Padding="14,12" Margin="0,0,0,16">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Refresh interval" FontSize="12" FontWeight="SemiBold"
+                                           Foreground="{StaticResource TextBrush}" VerticalAlignment="Center"/>
+                                <ComboBox Grid.Column="1" x:Name="RefreshPicker" Width="100"
+                                          SelectionChanged="RefreshPicker_Changed"/>
+                            </Grid>
+                        </Border>
 
-                        <Rectangle Height="0.5" Fill="{StaticResource BorderBrush}" Margin="0,0,0,16"/>
+                        <TextBlock Text="ABOUT" Style="{StaticResource HeaderText}" Margin="0,0,0,8"/>
+                        <Border Background="{StaticResource CardBrush}" CornerRadius="6"
+                                BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                                Padding="14,12">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <Image Width="36" Height="36" Source="Assets/icon.png"
+                                       RenderOptions.BitmapScalingMode="HighQuality" Margin="0,0,12,0"/>
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="ClaudeChecker" FontSize="12" FontWeight="SemiBold"
+                                                   Foreground="{StaticResource TextBrush}"/>
+                                        <Border Background="#F0F0F0" CornerRadius="3"
+                                                Margin="6,0,0,0" Padding="5,1">
+                                            <TextBlock x:Name="VersionLabel" FontSize="11"
+                                                       Foreground="{StaticResource SecondaryBrush}"
+                                                       FontFamily="Consolas"/>
+                                        </Border>
+                                    </StackPanel>
+                                    <TextBlock Text="Built by superdooper86 &amp; claude"
+                                               FontSize="11" Foreground="{StaticResource SecondaryBrush}"/>
+                                </StackPanel>
+                                <Button Grid.Column="2" x:Name="CheckUpdateButton"
+                                        Style="{StaticResource SmallButton}"
+                                        Click="CheckUpdate_Click" VerticalAlignment="Center"/>
+                            </Grid>
+                        </Border>
 
-                        <!-- About -->
+                    </StackPanel>
+                </ScrollViewer>
+            </DockPanel>
+        </Border>
+
+        <!-- Update panel -->
+        <Border x:Name="UpdatePanel" Visibility="Collapsed"
+                Background="{StaticResource BackgroundBrush}">
+            <DockPanel>
+                <Border DockPanel.Dock="Top" BorderBrush="{StaticResource BorderBrush}"
+                        BorderThickness="0,0,0,1" Background="#FAFAFA" Padding="12,10">
+                    <Grid>
+                        <Button Content="← Back" HorizontalAlignment="Left"
+                                Style="{StaticResource SmallButton}" BorderThickness="0"
+                                Foreground="{StaticResource BlueBrush}" Background="Transparent"
+                                Click="CloseUpdate_Click"/>
+                        <TextBlock Text="Update Available" FontSize="14" FontWeight="SemiBold"
+                                   Foreground="{StaticResource TextBrush}"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        <Button x:Name="NotNowButton" Content="Not Now" HorizontalAlignment="Right"
+                                Style="{StaticResource SmallButton}" Click="CloseUpdate_Click"/>
+                    </Grid>
+                </Border>
+
+                <StackPanel Margin="20,16">
+                    <Border Background="{StaticResource CardBrush}" CornerRadius="6"
+                            BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                            Padding="14,12" Margin="0,0,0,12">
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
-                            <Image Width="36" Height="36" Source="Assets/icon.png"
-                                   RenderOptions.BitmapScalingMode="HighQuality" Margin="0,0,12,0"/>
-                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="ClaudeChecker" FontSize="12" FontWeight="SemiBold" Foreground="White"/>
-                                    <Border Background="#0FFFFFFF" CornerRadius="4" Margin="6,0,0,0" Padding="5,1">
-                                        <TextBlock x:Name="VersionLabel" FontSize="11"
-                                                   Foreground="{StaticResource SecondaryBrush}"
-                                                   FontFamily="Consolas"/>
-                                    </Border>
-                                </StackPanel>
-                                <TextBlock Text="Built by superdooper86 &amp; claude"
-                                           FontSize="11" Foreground="{StaticResource SecondaryBrush}"/>
-                            </StackPanel>
-                            <Button Grid.Column="2" x:Name="CheckUpdateButton"
-                                    Style="{StaticResource SmallButton}" Click="CheckUpdate_Click"
-                                    VerticalAlignment="Center"/>
-                        </Grid>
-
-                    </StackPanel>
-                </ScrollViewer>
-            </Border>
-
-            <!-- Update sheet -->
-            <Border x:Name="UpdatePanel" Visibility="Collapsed"
-                    Background="{StaticResource BackgroundBrush}" CornerRadius="12">
-                <StackPanel>
-                    <Grid Margin="16,12">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Text="Update ClaudeChecker" FontSize="14" FontWeight="SemiBold"
-                                   Foreground="White" VerticalAlignment="Center"/>
-                        <Button Grid.Column="1" Content="Not Now" Style="{StaticResource SmallButton}"
-                                Click="CloseUpdate_Click" x:Name="NotNowButton"/>
-                    </Grid>
-                    <Rectangle Height="0.5" Fill="{StaticResource BorderBrush}"/>
-                    <StackPanel Margin="20">
-                        <Grid Margin="0,0,0,16">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            <Image Width="48" Height="48" Source="Assets/icon.png"
+                            <Image Width="44" Height="44" Source="Assets/icon.png"
                                    RenderOptions.BitmapScalingMode="HighQuality" Margin="0,0,14,0"/>
                             <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                <StackPanel Orientation="Horizontal">
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
                                     <TextBlock x:Name="CurrentVerLabel" FontSize="12" FontFamily="Consolas"
-                                               Foreground="{StaticResource SecondaryBrush}"/>
-                                    <TextBlock Text=" → " FontSize="10"
                                                Foreground="{StaticResource SecondaryBrush}" VerticalAlignment="Center"/>
+                                    <TextBlock Text=" → " FontSize="11" Foreground="{StaticResource SecondaryBrush}"
+                                               VerticalAlignment="Center"/>
                                     <TextBlock x:Name="NewVerLabel" FontSize="13" FontWeight="SemiBold"
-                                               FontFamily="Consolas" Foreground="{StaticResource BlueBrush}"/>
+                                               FontFamily="Consolas" Foreground="{StaticResource BlueBrush}"
+                                               VerticalAlignment="Center"/>
                                 </StackPanel>
                                 <TextBlock x:Name="ReleaseNotesText" FontSize="11" TextWrapping="Wrap"
-                                           Foreground="{StaticResource SecondaryBrush}" Margin="0,4,0,0"
-                                           MaxHeight="180"/>
+                                           Foreground="{StaticResource SecondaryBrush}" MaxHeight="160"/>
                             </StackPanel>
                         </Grid>
+                    </Border>
 
-                        <TextBlock x:Name="UpdateStatusText" Foreground="{StaticResource SecondaryBrush}"
-                                   FontSize="11" TextWrapping="Wrap" TextAlignment="Center"
-                                   Visibility="Collapsed" Margin="0,0,0,10"/>
-
-                        <ProgressBar x:Name="UpdateProgress" Visibility="Collapsed"
-                                     Height="4" Margin="0,0,0,12" Foreground="{StaticResource BlueBrush}"/>
-
-                        <TextBlock Text="ClaudeChecker will download the update, replace itself, and relaunch automatically."
-                                   FontSize="11" Foreground="{StaticResource SecondaryBrush}"
-                                   TextWrapping="Wrap" TextAlignment="Center" Margin="0,0,0,12"/>
-
-                        <Button x:Name="InstallButton" Content="⬇  Install Update"
-                                Style="{StaticResource PrimaryButton}" HorizontalAlignment="Stretch"
-                                Click="Install_Click"/>
-                    </StackPanel>
+                    <TextBlock x:Name="UpdateStatusText" Foreground="{StaticResource SecondaryBrush}"
+                               FontSize="11" TextWrapping="Wrap" TextAlignment="Center"
+                               Visibility="Collapsed" Margin="0,0,0,8"/>
+                    <ProgressBar x:Name="UpdateProgress" Visibility="Collapsed"
+                                 Height="4" Margin="0,0,0,12" Foreground="{StaticResource BlueBrush}"/>
+                    <TextBlock Text="ClaudeChecker will download, replace itself, and relaunch automatically."
+                               FontSize="11" Foreground="{StaticResource SecondaryBrush}"
+                               TextWrapping="Wrap" TextAlignment="Center" Margin="0,0,0,12"/>
+                    <Button x:Name="InstallButton" Content="⬇  Download &amp; Install"
+                            Style="{StaticResource PrimaryButton}" HorizontalAlignment="Stretch"
+                            Click="Install_Click"/>
                 </StackPanel>
-            </Border>
-        </Grid>
-    </Border>
+            </DockPanel>
+        </Border>
+    </Grid>
 </Window>
