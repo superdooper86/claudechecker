@@ -147,7 +147,15 @@ public class UsageViewModel : INotifyPropertyChanged
 
             await Application.Current.Dispatcher.InvokeAsync(() =>
             {
-                if (limits.Count > 0) { Limits = limits; Overage = overage; Prepaid = prepaid; ExtraUsage = extraUsage; }
+                if (limits.Count > 0)
+                {
+                    Limits    = limits;
+                    Overage   = overage;
+                    Prepaid   = prepaid;
+                    // Only clear ExtraUsage if the API explicitly disables it; keep cached value
+                    // if the HTTP endpoint omits the field (it often does for non-browser clients)
+                    if (extraUsage != null) ExtraUsage = extraUsage;
+                }
                 if (!string.IsNullOrEmpty(planLabel)) PlanLabel = planLabel;
                 if (!string.IsNullOrEmpty(email)) UserEmail = email;
                 IsSignedIn   = true;
