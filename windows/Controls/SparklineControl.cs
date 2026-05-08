@@ -1,4 +1,5 @@
-using System;
+using Color = System.Windows.Media.Color;
+using Point = System.Windows.Point;
 using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Media;
@@ -29,33 +30,32 @@ public class SparklineControl : FrameworkElement
         var h    = RenderSize.Height;
         var minV = double.MaxValue;
         var maxV = double.MinValue;
-
-        foreach (var v in plot) { minV = Math.Min(minV, v); maxV = Math.Max(maxV, v); }
-        var range = Math.Max(maxV - minV, 1);
+        foreach (var v in plot) { if (v < minV) minV = v; if (v > maxV) maxV = v; }
+        var range = System.Math.Max(maxV - minV, 1);
 
         Point Pt(int i) => new(
-            i / (double)(plot.Count - 1) * w,
+            i / (double)(plot.Length - 1) * w,
             h - (plot[i] - minV) / range * (h - 6) - 3);
 
-        // Fill
         var fill = new StreamGeometry();
         using (var ctx = fill.Open())
         {
             ctx.BeginFigure(new Point(0, h), true, true);
-            for (var i = 0; i < plot.Count; i++) ctx.LineTo(Pt(i), true, false);
+            for (var i = 0; i < plot.Length; i++) ctx.LineTo(Pt(i), true, false);
             ctx.LineTo(new Point(w, h), true, false);
         }
         fill.Freeze();
         dc.DrawGeometry(new SolidColorBrush(Color.FromArgb(26, LineColor.R, LineColor.G, LineColor.B)), null, fill);
 
-        // Line
         var line = new StreamGeometry();
         using (var ctx = line.Open())
         {
             ctx.BeginFigure(Pt(0), false, false);
-            for (var i = 1; i < plot.Count; i++) ctx.LineTo(Pt(i), true, false);
+            for (var i = 1; i < plot.Length; i++) ctx.LineTo(Pt(i), true, false);
         }
         line.Freeze();
-        dc.DrawGeometry(null, new Pen(new SolidColorBrush(LineColor), 1.5) { LineJoin = PenLineJoin.Round }, line);
+        dc.DrawGeometry(null,
+            new System.Windows.Media.Pen(new SolidColorBrush(LineColor), 1.5) { LineJoin = PenLineJoin.Round },
+            line);
     }
 }
