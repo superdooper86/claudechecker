@@ -179,6 +179,10 @@ public partial class PopupWindow : Window
             RebuildCards();
             UpdateFooter();
         }
+        if (prop is nameof(UsageViewModel.IsSignedIn) or nameof(UsageViewModel.UserEmail))
+        {
+            InitSettings();
+        }
     }
 
     private void OnUpdaterChanged(string? prop)
@@ -298,13 +302,13 @@ public partial class PopupWindow : Window
         await Updater.DownloadAndInstallAsync();
     }
 
-    private void SignIn_Click(object s, RoutedEventArgs e)
+    private async void SignIn_Click(object s, RoutedEventArgs e)
     {
         _dialogOpen = true;
         var login = new LoginWindow { Owner = this };
         if (login.ShowDialog() == true)
         {
-            _ = VM.RefreshAsync();
+            await VM.RefreshAsync();
             InitSettings();
         }
         _dialogOpen = false;
