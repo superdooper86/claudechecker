@@ -42,7 +42,7 @@ internal sealed class WebViewFetchWindow : Window
         msgHandler = (_, args) =>
         {
             _wv.CoreWebView2.WebMessageReceived -= msgHandler;
-            tcs.TrySetResult(args.WebMessageAsString);
+            tcs.TrySetResult(args.WebMessageAsJson);
         };
         _wv.CoreWebView2.WebMessageReceived += msgHandler;
 
