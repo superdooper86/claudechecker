@@ -6,18 +6,17 @@ namespace ClaudeCheckerWindows;
 
 public class AppSettings
 {
+    // Auth signal — non-empty means the user has completed sign-in at least once.
+    // The WebView2 user-data folder holds the live session; this is only for startup.
     public string CookieStore     { get; set; } = "";
+
+    // Accumulated sparkline data — built up over multiple refreshes.
     public string BurnHistory     { get; set; } = "";
-    public string OrgId           { get; set; } = "";
-    public string Email           { get; set; } = "";
-    public string UsageJson       { get; set; } = "";
+
+    // User preferences
     public int    RefreshInterval { get; set; } = 120;
     public bool   ShowInTaskbar   { get; set; } = true;
     public bool   BetaChannel     { get; set; } = false;
-    public string DebugInfo       { get; set; } = "";
-    public string PlanLabel       { get; set; } = "";
-    public string OverageJson     { get; set; } = "";
-    public string PrepaidJson     { get; set; } = "";
 
     private static readonly string FilePath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
