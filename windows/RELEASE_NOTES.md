@@ -1,7 +1,6 @@
-## What's new in beta.19
+## What's new in beta.20
 
-- Fixed dark mode: button hover no longer white, ComboBox fully themed
-- Fixed logo and version badge in Settings panel
-- Fixed signed-in email showing blank (TextBrush instead of hardcoded white)
-- Fixed session limits not loading: org ID now fetched dynamically from API
-- Added anthropic-client-platform header for correct API responses
+- Fixed: app now correctly shows you as signed in after login
+- Fixed: org ID is fetched from API rather than hardcoded; tries multiple JSON paths
+- Fixed: auth check now uses HTTP 200 from bootstrap (not whether org ID was found)
+- Added browser User-Agent header so API responds correctly
