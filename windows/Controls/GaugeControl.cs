@@ -1,3 +1,6 @@
+using Brush = System.Windows.Media.Brush;
+using Pen   = System.Windows.Media.Pen;
+using Point = System.Windows.Point;
 using System;
 using System.Globalization;
 using System.Windows;
@@ -18,7 +21,6 @@ public class GaugeControl : FrameworkElement
     public double Percent { get => (double)GetValue(PercentProperty); set => SetValue(PercentProperty, value); }
     public Brush  Accent  { get => (Brush)GetValue(AccentProperty);   set => SetValue(AccentProperty, value); }
 
-    // Arc sweeps 270° starting at 135° (bottom-left to bottom-right, like macOS version)
     private const double StartAngleDeg = 135;
     private const double SweepDeg      = 270;
     private const double StrokeWidth   = 6;
@@ -29,38 +31,30 @@ public class GaugeControl : FrameworkElement
         var cy     = RenderSize.Height / 2;
         var radius = Math.Min(cx, cy) - StrokeWidth / 2 - 1;
 
-        // Track
         DrawArc(dc, cx, cy, radius, StartAngleDeg, SweepDeg,
             new Pen(new SolidColorBrush(Color.FromArgb(28, 255, 255, 255)), StrokeWidth));
 
-        // Fill
         if (Percent > 0)
-        {
-            var sweep = SweepDeg * (Percent / 100.0);
-            DrawArc(dc, cx, cy, radius, StartAngleDeg, sweep, new Pen(Accent, StrokeWidth));
-        }
+            DrawArc(dc, cx, cy, radius, StartAngleDeg, SweepDeg * (Percent / 100.0),
+                new Pen(Accent, StrokeWidth));
 
-        var dpi  = VisualTreeHelper.GetDpi(this).PixelsPerDip;
+        var dpi = VisualTreeHelper.GetDpi(this).PixelsPerDip;
 
-        // Percent label
         var pctText = new FormattedText(
             $"{(int)Math.Round(Percent)}%",
-            CultureInfo.CurrentCulture,
-            FlowDirection.LeftToRight,
+            CultureInfo.CurrentCulture, FlowDirection.LeftToRight,
             new Typeface(new FontFamily("Segoe UI"), FontStyles.Normal, FontWeights.Bold, FontStretches.Normal),
             14, Brushes.White, dpi);
-
         dc.DrawText(pctText, new Point(cx - pctText.Width / 2, cy - pctText.Height - 1));
 
-        // Sub-label
         var sub = new FormattedText(
             "Updated\nnow",
-            CultureInfo.CurrentCulture,
-            FlowDirection.LeftToRight,
-            new Typeface("Segoe UI"),
-            7, new SolidColorBrush(Color.FromRgb(0x88, 0x88, 0x88)), dpi);
-        sub.TextAlignment = TextAlignment.Center;
-
+            CultureInfo.CurrentCulture, FlowDirection.LeftToRight,
+            new Typeface("Segoe UI"), 7,
+            new SolidColorBrush(Color.FromRgb(0x88, 0x88, 0x88)), dpi)
+        {
+            TextAlignment = TextAlignment.Center
+        };
         dc.DrawText(sub, new Point(cx - sub.Width / 2, cy + 2));
     }
 
@@ -68,10 +62,9 @@ public class GaugeControl : FrameworkElement
         double startDeg, double sweepDeg, Pen pen)
     {
         if (sweepDeg <= 0) return;
-
-        var start    = PointOnCircle(cx, cy, r, startDeg);
-        var end      = PointOnCircle(cx, cy, r, startDeg + sweepDeg);
-        var isLarge  = sweepDeg > 180;
+        var start   = PointOnCircle(cx, cy, r, startDeg);
+        var end     = PointOnCircle(cx, cy, r, startDeg + sweepDeg);
+        var isLarge = sweepDeg > 180;
 
         var geo = new StreamGeometry();
         using (var ctx = geo.Open())
