@@ -56,12 +56,12 @@ public partial class PopupWindow : Window
         foreach (var limit in VM.Limits)
             CardsPanel.Children.Add(BuildCard(limit));
 
+        if (VM.ExtraUsage?.IsEnabled == true)
+            CardsPanel.Children.Add(BuildExtraUsageSection());
+
         var fiveHour = VM.Limits.FirstOrDefault(l => l.Window == WindowKind.FiveHour);
         if (fiveHour != null && fiveHour.BurnHistory.Count > 0)
             CardsPanel.Children.Add(BuildDiarySection(fiveHour));
-
-        if (VM.ExtraUsage?.IsEnabled == true)
-            CardsPanel.Children.Add(BuildExtraUsageSection());
     }
 
     private static UIElement BuildCard(AgentLimit limit)
