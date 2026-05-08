@@ -166,17 +166,10 @@ public partial class PopupWindow : Window
         timeRow.Children.Add(timeLeft);
         timeRow.Children.Add(timeRight);
 
-        var sparkline = new SparklineControl
-        {
-            Height = 28, Margin = new Thickness(0, 8, 0, 0), LineColor = Color.FromRgb(0xF9, 0x73, 0x16),
-            Data = limit.BurnHistory.Count > 0 ? limit.BurnHistory : null,
-        };
-
         var infoPanel = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
         infoPanel.Children.Add(headerRow);
         infoPanel.Children.Add(progress);
         infoPanel.Children.Add(timeRow);
-        infoPanel.Children.Add(sparkline);
 
         var cardGrid = new Grid { Margin = new Thickness(16, 12, 16, 12) };
         cardGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
