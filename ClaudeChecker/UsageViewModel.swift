@@ -84,8 +84,9 @@ class UsageViewModel: ObservableObject {
             async let prepaidFetch = fetchPrepaidCredits(orgId: orgId)
             async let overageFetch = fetchOverageSpendLimit(orgId: orgId)
             async let emailFetch   = fetchUserEmail()
-            let (usage, prepaid, overage, email) = try await (usageFetch, prepaidFetch, overageFetch, emailFetch)
-            if let email { userEmail = email }
+            let (usage, prepaid, overage, emailResult) = try await (usageFetch, prepaidFetch, overageFetch, emailFetch)
+            if let email = emailResult.email { userEmail = email }
+            if let plan = emailResult.planLabel { planLabel = plan }
             limits = buildLimits(from: usage)
             extraUsage = usage.extraUsage
             prepaidCredits = prepaid
@@ -188,7 +189,7 @@ class UsageViewModel: ObservableObject {
         return try JSONDecoder().decode(UsageResponse.self, from: data)
     }
 
-    private func fetchUserEmail() async throws -> String? {
+    private func fetchUserEmail() async throws -> (email: String?, planLabel: String?) {
         let url = URL(string: "https://claude.ai/api/bootstrap")!
         var req = URLRequest(url: url)
         req.setValue("application/json", forHTTPHeaderField: "accept")
@@ -196,9 +197,16 @@ class UsageViewModel: ObservableObject {
         let (data, response) = try await URLSession.shared.data(for: req)
         guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { return nil }
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let account = json["account"] as? [String: Any],
-              let email = account["email_address"] as? String else { return nil }
-        return email
+              let account = json["account"] as? [String: Any] else { return (nil, nil) }
+        let email = account["email_address"] as? String
+        var planLabel: String? = nil
+        if let memberships = account["memberships"] as? [[String: Any]],
+           let caps = memberships.first?["organization"]?["capabilities"] as? [String],
+           let cap = caps.first(where: { $0.hasPrefix("claude_") }) {
+            let name = String(cap.dropFirst("claude_".count))
+            planLabel = name.prefix(1).uppercased() + name.dropFirst().lowercased()
+        }
+        return (email, planLabel)
     }
 
     private func fetchPrepaidCredits(orgId: String) async throws -> PrepaidCredits? {
