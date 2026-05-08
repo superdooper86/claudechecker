@@ -37,6 +37,9 @@ class UsageViewModel: ObservableObject {
         let saved = UserDefaults.standard.double(forKey: "refresh_interval")
         refreshInterval = saved > 0 ? saved : 60
         showInMenuBar = UserDefaults.standard.object(forKey: "show_in_menubar") as? Bool ?? true
+        if let saved = UserDefaults.standard.object(forKey: "burn_history") as? [String: [Double]] {
+            burnHistoryStore = saved
+        }
         loadPlaceholderData()
     }
 
@@ -84,8 +87,9 @@ class UsageViewModel: ObservableObject {
                 history.append(limits[i].usedPercent)
                 if history.count > maxHistorySamples { history.removeFirst() }
                 burnHistoryStore[key] = history
-                if history.count > 1 { limits[i].burnHistory = history }
+                limits[i].burnHistory = history
             }
+            UserDefaults.standard.set(burnHistoryStore, forKey: "burn_history")
             checkLimitNotifications(for: limits)
         } catch AppError.notAuthenticated {
             isNotAuthenticated = true
@@ -313,3 +317,4 @@ extension Notification.Name {
     static let limitReset = Notification.Name("limitReset")
     static let openUpdateSheet = Notification.Name("openUpdateSheet")
 }
+
