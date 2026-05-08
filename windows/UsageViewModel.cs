@@ -100,9 +100,36 @@ public class UsageViewModel : INotifyPropertyChanged
             // HttpClient refresh — WebView2 is NOT used here to avoid spawning a heavy
             // browser process every refresh cycle (causes memory accumulation).
             // SaveAndClose at login time is responsible for fetching live data via WebView2.
-            var (limits, overage, prepaid, extraUsage, email, orgId, planLabel, ok) = hasCookies
-                ? await TryHttpRefreshAsync(cookies)
-                : ([], null, null, null, null, null, null, false);
+            List<AgentLimit> limits    = [];
+            OverageSpendLimit? overage = null;
+            PrepaidCredits?    prepaid = null;
+            ExtraUsage?     extraUsage = null;
+            string? email = null, orgId = null, planLabel = null;
+            string? refreshError = null;
+
+            if (hasCookies)
+            {
+                try
+                {
+                    (limits, overage, prepaid, extraUsage, email, orgId, planLabel, _) =
+                        await TryHttpRefreshAsync(cookies);
+                }
+                catch (Exception ex)
+                {
+                    refreshError = ex.Message;
+                    bool authFailed = ex.Message.Contains("re-authenticate");
+                    if (authFailed)
+                    {
+                        await Application.Current.Dispatcher.InvokeAsync(() =>
+                        {
+                            IsSignedIn   = false;
+                            ErrorMessage = ex.Message;
+                            IsLoading    = false;
+                        });
+                        return;
+                    }
+                }
+            }
 
             // Fill in any blanks from cached values saved at login time
             if (string.IsNullOrEmpty(email))  email  = AppSettings.Default.Email;
@@ -135,7 +162,7 @@ public class UsageViewModel : INotifyPropertyChanged
                 if (!string.IsNullOrEmpty(planLabel)) PlanLabel = planLabel;
                 if (!string.IsNullOrEmpty(email)) UserEmail = email;
                 IsSignedIn   = true;
-                ErrorMessage = null;
+                ErrorMessage = refreshError;
                 LastUpdated  = DateTime.Now;
                 IsLoading    = false;
             });
@@ -157,8 +184,10 @@ public class UsageViewModel : INotifyPropertyChanged
         {
             using var http = BuildClient(cookies);
             var bootstrapResp = await http.GetAsync("https://claude.ai/api/bootstrap");
+            if ((int)bootstrapResp.StatusCode is 401 or 403)
+                throw new Exception("Session expired — please re-authenticate.");
             if (!bootstrapResp.IsSuccessStatusCode)
-                return ([], null, null, null, null, null, false);
+                throw new Exception($"Bootstrap failed ({(int)bootstrapResp.StatusCode}).");
 
             var (email, orgId, planLabel) = ParseBootstrap(await bootstrapResp.Content.ReadAsStringAsync());
 
@@ -173,14 +202,26 @@ public class UsageViewModel : INotifyPropertyChanged
             AppSettings.Default.OrgId = orgId;
             AppSettings.Default.Save();
 
-            var ut = FetchAsync<UsageResponse>(http, $"https://claude.ai/api/organizations/{orgId}/usage");
+            var usageUrl  = $"https://claude.ai/api/organizations/{orgId}/usage";
+            var ut = http.GetAsync(usageUrl);
             var ot = FetchAsync<OverageSpendLimit>(http, $"https://claude.ai/api/organizations/{orgId}/overage_spend_limit");
             var pt = FetchAsync<PrepaidCredits>(http, $"https://claude.ai/api/organizations/{orgId}/prepaid/credits");
             await Task.WhenAll(ut, ot, pt);
 
-            return (BuildLimits(ut.Result), ot.Result, pt.Result, ut.Result?.ExtraUsage, email, orgId, planLabel, true);
+            var usageResp = ut.Result;
+            if (!usageResp.IsSuccessStatusCode)
+                throw new Exception($"Usage fetch failed ({(int)usageResp.StatusCode}).");
+
+            var usageJson = await usageResp.Content.ReadAsStringAsync();
+            var usage     = JsonSerializer.Deserialize<UsageResponse>(usageJson, JsonOpts);
+
+            // Persist fresh usage so cache reflects live data
+            AppSettings.Default.UsageJson = usageJson;
+            AppSettings.Default.Save();
+
+            return (BuildLimits(usage), ot.Result, pt.Result, usage?.ExtraUsage, email, orgId, planLabel, true);
         }
-        catch { return ([], null, null, null, null, null, null, false); }
+        catch { throw; }
     }
 
     private static async Task<(List<AgentLimit>, string?, string?)> TryWebView2RefreshAsync()
@@ -415,7 +456,7 @@ public class UsageViewModel : INotifyPropertyChanged
             }
             return (email, orgId, planLabel);
         }
-        catch { return (null, null); }
+        catch { return (null, null, null); }
     }
 
     private static async Task<string?> FetchOrgIdFromListAsync(HttpClient http)
