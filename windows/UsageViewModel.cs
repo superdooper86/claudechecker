@@ -79,12 +79,8 @@ public class UsageViewModel : INotifyPropertyChanged
 
         try
         {
-            // Check whether we have any evidence of a prior successful sign-in
-            bool hasCachedAuth = !string.IsNullOrEmpty(AppSettings.Default.Email)  ||
-                                 !string.IsNullOrEmpty(AppSettings.Default.OrgId)  ||
-                                 !string.IsNullOrEmpty(AppSettings.Default.CookieStore);
-
-            if (!hasCachedAuth)
+            // CookieStore being non-empty is our signal that the user has signed in.
+            if (string.IsNullOrEmpty(AppSettings.Default.CookieStore))
             {
                 await Application.Current.Dispatcher.InvokeAsync(() =>
                 {
@@ -102,9 +98,9 @@ public class UsageViewModel : INotifyPropertyChanged
             string? email = null, orgId = null, planLabel = null;
             string? refreshError = null;
 
-            // Primary path: persistent background WebView2 (always-live cookies, same as macOS).
-            // Falls back to HttpClient with saved cookies only if the browser isn't ready yet
-            // (i.e., the very first refresh that races with InitAsync completing).
+            // Primary: persistent background WebView2 — always-live cookies, same as macOS.
+            // Fallback: HttpClient with saved cookies, only if the browser isn't ready yet
+            // (the brief window while InitAsync is still navigating at startup).
             if (App.BackgroundBrowser.IsReady)
             {
                 try
@@ -134,20 +130,6 @@ public class UsageViewModel : INotifyPropertyChanged
                 }
             }
 
-            // Fill in blanks from cache
-            if (string.IsNullOrEmpty(email)) email = AppSettings.Default.Email;
-            if (string.IsNullOrEmpty(orgId)) orgId = AppSettings.Default.OrgId;
-            if (limits.Count == 0 && !string.IsNullOrEmpty(AppSettings.Default.UsageJson))
-            {
-                try
-                {
-                    var cached = JsonSerializer.Deserialize<UsageResponse>(
-                        AppSettings.Default.UsageJson, JsonOpts);
-                    limits = BuildLimits(cached);
-                }
-                catch { }
-            }
-
             foreach (var limit in limits)
             {
                 var key = limit.Window.ToString();
@@ -166,7 +148,6 @@ public class UsageViewModel : INotifyPropertyChanged
                     Limits    = limits;
                     Overage   = overage;
                     Prepaid   = prepaid;
-                    // Only replace ExtraUsage when the response explicitly includes it
                     if (extraUsage != null) ExtraUsage = extraUsage;
                 }
                 if (!string.IsNullOrEmpty(planLabel)) PlanLabel = planLabel;
@@ -187,9 +168,8 @@ public class UsageViewModel : INotifyPropertyChanged
         }
     }
 
-    // ── Browser-based refresh (primary path) ─────────────────────────────────
-    // Runs JS on the persistent claude.ai page — same live cookies as macOS WKWebView.
-    // Fetches bootstrap (orgId/email/planLabel) + usage + overage + prepaid in one shot.
+    // ── Browser-based refresh (primary) ───────────────────────────────────────
+    // Runs JS on the persistent claude.ai page. Same live cookies as macOS WKWebView.
 
     private async Task<(List<AgentLimit>, OverageSpendLimit?, PrepaidCredits?, ExtraUsage?, string?, string?, string?)>
         TryBrowserRefreshAsync()
@@ -237,42 +217,21 @@ public class UsageViewModel : INotifyPropertyChanged
         string? orgId     = root.TryGetProperty("orgId",     out var oi) && oi.ValueKind == JsonValueKind.String ? oi.GetString() : null;
         string? planLabel = root.TryGetProperty("planLabel", out var pl) && pl.ValueKind == JsonValueKind.String ? pl.GetString() : null;
 
-        string?            usageJson   = null;
         UsageResponse?     usage       = null;
-        string?            overageJson = null;
         OverageSpendLimit? overage     = null;
-        string?            prepaidJson = null;
         PrepaidCredits?    prepaid     = null;
 
-        if (root.TryGetProperty("usage", out var us) && us.ValueKind == JsonValueKind.Object)
-        {
-            usageJson = us.GetRawText();
-            usage     = JsonSerializer.Deserialize<UsageResponse>(usageJson, JsonOpts);
-        }
+        if (root.TryGetProperty("usage",   out var us) && us.ValueKind == JsonValueKind.Object)
+            usage   = JsonSerializer.Deserialize<UsageResponse>(us.GetRawText(), JsonOpts);
         if (root.TryGetProperty("overage", out var ov) && ov.ValueKind == JsonValueKind.Object)
-        {
-            overageJson = ov.GetRawText();
-            overage     = JsonSerializer.Deserialize<OverageSpendLimit>(overageJson, JsonOpts);
-        }
+            overage = JsonSerializer.Deserialize<OverageSpendLimit>(ov.GetRawText(), JsonOpts);
         if (root.TryGetProperty("prepaid", out var pp) && pp.ValueKind == JsonValueKind.Object)
-        {
-            prepaidJson = pp.GetRawText();
-            prepaid     = JsonSerializer.Deserialize<PrepaidCredits>(prepaidJson, JsonOpts);
-        }
-
-        // Persist fresh data to cache
-        if (usageJson   != null)                    AppSettings.Default.UsageJson   = usageJson;
-        if (!string.IsNullOrEmpty(email))           AppSettings.Default.Email       = email!;
-        if (!string.IsNullOrEmpty(orgId))           AppSettings.Default.OrgId       = orgId!;
-        if (!string.IsNullOrEmpty(planLabel))       AppSettings.Default.PlanLabel   = planLabel!;
-        if (overageJson != null)                    AppSettings.Default.OverageJson = overageJson;
-        if (prepaidJson != null)                    AppSettings.Default.PrepaidJson = prepaidJson;
-        AppSettings.Default.Save();
+            prepaid = JsonSerializer.Deserialize<PrepaidCredits>(pp.GetRawText(), JsonOpts);
 
         return (BuildLimits(usage), overage, prepaid, usage?.ExtraUsage, email, orgId, planLabel);
     }
 
-    // ── HttpClient refresh (fallback — used only before browser is ready) ────
+    // ── HttpClient refresh (fallback — before browser is ready) ──────────────
 
     private async Task<(List<AgentLimit>, OverageSpendLimit?, PrepaidCredits?, ExtraUsage?, string?, string?, string?, bool)>
         TryHttpRefreshAsync(List<(string Name, string Value, string Domain, string Path)> cookies)
@@ -289,14 +248,9 @@ public class UsageViewModel : INotifyPropertyChanged
 
         if (string.IsNullOrEmpty(orgId))
             orgId = await FetchOrgIdFromListAsync(http);
-        if (string.IsNullOrEmpty(orgId) && !string.IsNullOrEmpty(AppSettings.Default.OrgId))
-            orgId = AppSettings.Default.OrgId;
 
         if (string.IsNullOrEmpty(orgId))
             return ([], null, null, null, email, orgId, planLabel, true);
-
-        AppSettings.Default.OrgId = orgId;
-        AppSettings.Default.Save();
 
         var ut = http.GetAsync($"https://claude.ai/api/organizations/{orgId}/usage");
         var ot = FetchAsync<OverageSpendLimit>(http, $"https://claude.ai/api/organizations/{orgId}/overage_spend_limit");
@@ -309,56 +263,20 @@ public class UsageViewModel : INotifyPropertyChanged
 
         var usageJson = await usageResp.Content.ReadAsStringAsync();
         var usage     = JsonSerializer.Deserialize<UsageResponse>(usageJson, JsonOpts);
-        var overage   = ot.Result;
-        var prepaid   = pt.Result;
 
-        AppSettings.Default.UsageJson = usageJson;
-        if (!string.IsNullOrEmpty(planLabel)) AppSettings.Default.PlanLabel   = planLabel;
-        if (overage != null)                  AppSettings.Default.OverageJson = JsonSerializer.Serialize(overage);
-        if (prepaid != null)                  AppSettings.Default.PrepaidJson = JsonSerializer.Serialize(prepaid);
-        AppSettings.Default.Save();
-
-        return (BuildLimits(usage), overage, prepaid, usage?.ExtraUsage, email, orgId, planLabel, true);
+        return (BuildLimits(usage), ot.Result, pt.Result, usage?.ExtraUsage, email, orgId, planLabel, true);
     }
+
+    // ── Startup cache ─────────────────────────────────────────────────────────
+    // Called before the browser is ready. Sets sign-in state and shows placeholders
+    // with any previously accumulated burn history so the popup isn't blank.
 
     public async Task LoadFromCacheAsync()
     {
-        var email  = AppSettings.Default.Email;
-        var orgId  = AppSettings.Default.OrgId;
-        var cookie = AppSettings.Default.CookieStore;
+        if (string.IsNullOrEmpty(AppSettings.Default.CookieStore)) return;
 
-        bool isAuth = !string.IsNullOrEmpty(email) || !string.IsNullOrEmpty(orgId)
-                   || !string.IsNullOrEmpty(cookie);
-        if (!isAuth) return;
-
-        List<AgentLimit> limits = [];
-        ExtraUsage?     extraUsage = null;
-        OverageSpendLimit? overage = null;
-        PrepaidCredits?    prepaid = null;
-
-        if (!string.IsNullOrEmpty(AppSettings.Default.UsageJson))
-        {
-            try
-            {
-                var cached = JsonSerializer.Deserialize<UsageResponse>(
-                    AppSettings.Default.UsageJson, JsonOpts);
-                limits     = BuildLimits(cached);
-                extraUsage = cached?.ExtraUsage;
-            }
-            catch { }
-        }
-        if (!string.IsNullOrEmpty(AppSettings.Default.OverageJson))
-        {
-            try { overage = JsonSerializer.Deserialize<OverageSpendLimit>(AppSettings.Default.OverageJson, JsonOpts); }
-            catch { }
-        }
-        if (!string.IsNullOrEmpty(AppSettings.Default.PrepaidJson))
-        {
-            try { prepaid = JsonSerializer.Deserialize<PrepaidCredits>(AppSettings.Default.PrepaidJson, JsonOpts); }
-            catch { }
-        }
-
-        foreach (var limit in limits)
+        var placeholders = LoadPlaceholderLimits();
+        foreach (var limit in placeholders)
         {
             var key = limit.Window.ToString();
             if (_burnHistory.TryGetValue(key, out var hist) && hist.Count > 0)
@@ -367,30 +285,21 @@ public class UsageViewModel : INotifyPropertyChanged
 
         await Application.Current.Dispatcher.InvokeAsync(() =>
         {
-            if (!string.IsNullOrEmpty(email))                        UserEmail  = email;
-            if (!string.IsNullOrEmpty(AppSettings.Default.PlanLabel)) PlanLabel = AppSettings.Default.PlanLabel;
-            Limits       = limits.Count > 0 ? limits : LoadPlaceholderLimits();
-            Overage      = overage;
-            Prepaid      = prepaid;
-            ExtraUsage   = extraUsage;
-            IsSignedIn   = true;
-            ErrorMessage = null;
-            LastUpdated  = limits.Count > 0 ? DateTime.Now : LastUpdated;
+            Limits     = placeholders;
+            IsSignedIn = true;
         });
     }
 
     public async Task SignOutAsync()
     {
         AppSettings.Default.CookieStore = "";
-        AppSettings.Default.OrgId       = "";
-        AppSettings.Default.Email       = "";
-        AppSettings.Default.UsageJson   = "";
         AppSettings.Default.Save();
 
         await Application.Current.Dispatcher.InvokeAsync(() =>
         {
             IsSignedIn   = false;
             UserEmail    = "";
+            PlanLabel    = "Claude";
             ErrorMessage = "Signed out.";
             Limits       = [];
         });
