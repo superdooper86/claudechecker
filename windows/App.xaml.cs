@@ -37,6 +37,7 @@ public partial class App : Application
 
         _ = Task.Run(async () =>
         {
+            await ViewModel.LoadFromCacheAsync();
             await Task.Delay(1000);
             await ViewModel.RefreshAsync();
             await Updater.CheckForUpdatesAsync();
