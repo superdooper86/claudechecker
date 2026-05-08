@@ -25,14 +25,12 @@ class UsageViewModel: ObservableObject {
         }
     }
 
-    private var cachedOrgId: String?
     private var burnHistoryStore: [String: [Double]] = [:]
     private let maxHistorySamples = 24
     private var previousPercents: [String: Double] = [:]
     private var firedThresholds: [String: Set<Int>] = [:]
 
     init() {
-        cachedOrgId = UserDefaults.standard.string(forKey: "claude_org_id")
         let saved = UserDefaults.standard.double(forKey: "refresh_interval")
         refreshInterval = saved > 0 ? saved : 60
         showInMenuBar = UserDefaults.standard.object(forKey: "show_in_menubar") as? Bool ?? true
@@ -48,7 +46,6 @@ class UsageViewModel: ObservableObject {
         let records = await store.dataRecords(ofTypes: types)
         let claudeRecords = records.filter { $0.displayName.contains("claude.ai") }
         await store.removeData(ofTypes: types, for: claudeRecords)
-        cachedOrgId = nil
         UserDefaults.standard.removeObject(forKey: "claude_org_id")
         isSignedIn = false
         isNotAuthenticated = true
@@ -67,26 +64,25 @@ class UsageViewModel: ObservableObject {
         defer { isLoading = false }
 
         do {
-            // Fetch org ID dynamically if not cached
-            if cachedOrgId == nil {
-                let (fetchedOrgId, fetchedPlan) = try await fetchOrgId()
-                cachedOrgId = fetchedOrgId
-                if let id = cachedOrgId {
-                    UserDefaults.standard.set(id, forKey: "claude_org_id")
-                }
-                if let plan = fetchedPlan { planLabel = plan }
-            }
-            guard let orgId = cachedOrgId else {
+            let (fetchedOrgId, fetchedEmail, fetchedPlan) = try await fetchBootstrap()
+
+            let orgId: String
+            if let id = fetchedOrgId {
+                UserDefaults.standard.set(id, forKey: "claude_org_id")
+                orgId = id
+            } else if let cached = UserDefaults.standard.string(forKey: "claude_org_id") {
+                orgId = cached
+            } else {
                 throw AppError.notAuthenticated
             }
+
+            if let email = fetchedEmail { userEmail = email }
+            if let plan = fetchedPlan   { planLabel = plan }
 
             async let usageFetch   = fetchUsage(orgId: orgId)
             async let prepaidFetch = fetchPrepaidCredits(orgId: orgId)
             async let overageFetch = fetchOverageSpendLimit(orgId: orgId)
-            async let emailFetch   = fetchUserEmail()
-            let (usage, prepaid, overage, emailResult) = try await (usageFetch, prepaidFetch, overageFetch, emailFetch)
-            if let email = emailResult.email { userEmail = email }
-            if let plan = emailResult.planLabel { planLabel = plan }
+            let (usage, prepaid, overage) = try await (usageFetch, prepaidFetch, overageFetch)
             limits = buildLimits(from: usage)
             extraUsage = usage.extraUsage
             prepaidCredits = prepaid
@@ -123,50 +119,44 @@ class UsageViewModel: ObservableObject {
         }
     }
 
-    // MARK: - Fetch org ID from bootstrap
+    // MARK: - Bootstrap (org ID + email + plan label in one call)
 
-    private func fetchOrgId() async throws -> (orgId: String?, planLabel: String?) {
+    private func fetchBootstrap() async throws -> (orgId: String?, email: String?, planLabel: String?) {
         let url = URL(string: "https://claude.ai/api/bootstrap")!
         var req = URLRequest(url: url)
         req.setValue("application/json", forHTTPHeaderField: "accept")
-        let cookies = await WKWebsiteDataStore.default().httpCookieStore.allCookies()
-        let claudeCookies = cookies.filter { $0.domain.contains("claude.ai") }
-        if claudeCookies.isEmpty { throw AppError.notAuthenticated }
-        if let header = HTTPCookie.requestHeaderFields(with: claudeCookies)["Cookie"] {
-            req.setValue(header, forHTTPHeaderField: "Cookie")
-        }
+        guard let cookie = await claudeCookieHeader() else { throw AppError.notAuthenticated }
+        req.setValue(cookie, forHTTPHeaderField: "Cookie")
         let (data, response) = try await URLSession.shared.data(for: req)
         guard let http = response as? HTTPURLResponse else { throw AppError.networkError }
         if http.statusCode == 401 || http.statusCode == 403 { throw AppError.notAuthenticated }
         guard http.statusCode == 200 else { throw AppError.networkError }
-        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return (nil, nil) }
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return (nil, nil, nil)
+        }
 
-        func planFromOrg(_ org: [String: Any]?) -> String? {
-            guard let caps = org?["capabilities"] as? [String] else { return nil }
-            guard let cap = caps.first(where: { $0.hasPrefix("claude_") }) else { return nil }
+        let account  = json["account"] as? [String: Any]
+        // memberships may live under account or at root (older API shape)
+        let memberships = (account?["memberships"] ?? json["memberships"]) as? [[String: Any]]
+        let firstOrg = memberships?.first?["organization"] as? [String: Any]
+
+        // org ID — primary path then flat-list fallback
+        var orgId: String? = firstOrg?["uuid"] as? String
+        if orgId == nil {
+            orgId = (json["organizations"] as? [[String: Any]])?.first?["uuid"] as? String
+        }
+
+        let email = account?["email_address"] as? String
+
+        // plan label from capabilities e.g. "claude_pro" -> "Pro"
+        var planLabel: String? = nil
+        if let caps = firstOrg?["capabilities"] as? [String],
+           let cap = caps.first(where: { $0.hasPrefix("claude_") }) {
             let name = String(cap.dropFirst("claude_".count))
-            return name.prefix(1).uppercased() + name.dropFirst().lowercased()
+            planLabel = name.prefix(1).uppercased() + name.dropFirst().lowercased()
         }
 
-        // account.memberships[0].organization.uuid
-        if let account = json["account"] as? [String: Any],
-           let memberships = account["memberships"] as? [[String: Any]],
-           let org = memberships.first?["organization"] as? [String: Any],
-           let uuid = org["uuid"] as? String {
-            return (uuid, planFromOrg(org))
-        }
-        // root memberships (older API shape)
-        if let memberships = json["memberships"] as? [[String: Any]],
-           let org = memberships.first?["organization"] as? [String: Any],
-           let uuid = org["uuid"] as? String {
-            return (uuid, planFromOrg(org))
-        }
-        // root organizations array
-        if let orgs = json["organizations"] as? [[String: Any]],
-           let uuid = orgs.first?["uuid"] as? String {
-            return (uuid, planFromOrg(orgs.first))
-        }
-        return (nil, nil)
+        return (orgId, email, planLabel)
     }
 
     // MARK: - Fetch usage
@@ -187,27 +177,6 @@ class UsageViewModel: ObservableObject {
         if http.statusCode == 401 || http.statusCode == 403 { throw AppError.notAuthenticated }
         guard http.statusCode == 200 else { throw AppError.networkError }
         return try JSONDecoder().decode(UsageResponse.self, from: data)
-    }
-
-    private func fetchUserEmail() async throws -> (email: String?, planLabel: String?) {
-        let url = URL(string: "https://claude.ai/api/bootstrap")!
-        var req = URLRequest(url: url)
-        req.setValue("application/json", forHTTPHeaderField: "accept")
-        if let cookie = await claudeCookieHeader() { req.setValue(cookie, forHTTPHeaderField: "Cookie") }
-        let (data, response) = try await URLSession.shared.data(for: req)
-        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { return (nil, nil) }
-        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let account = json["account"] as? [String: Any] else { return (nil, nil) }
-        let email = account["email_address"] as? String
-        var planLabel: String? = nil
-        if let memberships = account["memberships"] as? [[String: Any]],
-           let org = memberships.first?["organization"] as? [String: Any],
-           let caps = org["capabilities"] as? [String],
-           let cap = caps.first(where: { $0.hasPrefix("claude_") }) {
-            let name = String(cap.dropFirst("claude_".count))
-            planLabel = name.prefix(1).uppercased() + name.dropFirst().lowercased()
-        }
-        return (email, planLabel)
     }
 
     private func fetchPrepaidCredits(orgId: String) async throws -> PrepaidCredits? {
