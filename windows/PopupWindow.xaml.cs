@@ -15,7 +15,6 @@ public partial class PopupWindow : Window
     private static readonly UpdateManager  Updater = App.Updater;
     private readonly DispatcherTimer _clockTimer;
 
-
     [DllImport("dwmapi.dll")]
     private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int value, int size);
 
@@ -71,10 +70,8 @@ public partial class PopupWindow : Window
         var secondary = (SolidColorBrush)Application.Current.Resources["SecondaryBrush"];
         var border    = (SolidColorBrush)Application.Current.Resources["BorderBrush"];
 
-        // Gauge
         var gauge = new GaugeControl { Width = 76, Height = 76, Percent = limit.UsedPercent, Accent = accent };
 
-        // Live badge
         var liveBadge = new Border
         {
             Background   = new SolidColorBrush(Color.FromArgb(30, 0, 160, 0)),
@@ -86,7 +83,6 @@ public partial class PopupWindow : Window
                                Foreground = new SolidColorBrush(Color.FromRgb(0, 120, 0)) }
         };
 
-        // Usage badge
         var usageBadge = new Border
         {
             Background   = new SolidColorBrush(Color.FromArgb(18, 0, 0, 0)),
@@ -124,7 +120,7 @@ public partial class PopupWindow : Window
             BorderThickness = new Thickness(0),
         };
 
-        // Left side of time row: "⏱ Xh Ym   Resets D MMM YYYY at HH:mm"
+        // Left: time remaining + reset date inline
         var timeLeft = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
         timeLeft.Children.Add(new TextBlock { Text = "⏱ ", FontSize = 10, Foreground = secondary, VerticalAlignment = VerticalAlignment.Center });
         timeLeft.Children.Add(new TextBlock { Text = limit.TimeRemaining, FontSize = 12,
@@ -135,7 +131,7 @@ public partial class PopupWindow : Window
             FontSize = 10, Foreground = secondary, VerticalAlignment = VerticalAlignment.Center
         });
 
-        // Right side: "after reset" when 0%, "today HH:MM" when refreshed today
+        // Right: "after reset" when 0%, "today HH:MM" when refreshed today
         string? refreshLabel = limit.UsedPercent == 0
             ? "after reset"
             : VM.LastUpdated?.Date == DateTime.Today
@@ -159,7 +155,7 @@ public partial class PopupWindow : Window
         }
         else
         {
-            timeRight = new TextBlock(); // empty placeholder
+            timeRight = new TextBlock();
         }
 
         var timeRow = new Grid();
@@ -216,28 +212,39 @@ public partial class PopupWindow : Window
 
     private static UIElement BuildDiarySection(AgentLimit limit)
     {
-        var text      = (SolidColorBrush)Application.Current.Resources["TextBrush"];
         var secondary = (SolidColorBrush)Application.Current.Resources["SecondaryBrush"];
         var border    = (SolidColorBrush)Application.Current.Resources["BorderBrush"];
 
-        var samples = limit.BurnHistory.Count;
-        var avgBurn = limit.BurnRate;
-
-        var subtitle = new TextBlock
+        // Stats row inside the card (mirrors macOS layout without the Claude icon/header)
+        var statsRow = new Grid { Margin = new Thickness(12, 10, 12, 6) };
+        statsRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        statsRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        var samplesText = new TextBlock
         {
-            Text       = $"{samples} samples · {avgBurn:F1}%/h avg burn rate",
-            FontSize   = 11,
-            Foreground = secondary,
-            Margin     = new Thickness(16, 0, 16, 6),
+            Text = $"{limit.BurnHistory.Count} samples",
+            FontSize = 11, Foreground = secondary, VerticalAlignment = VerticalAlignment.Center
         };
+        var burnText = new TextBlock
+        {
+            Text = $"Avg burn rate: {limit.BurnRate:F1}%/h",
+            FontSize = 11, Foreground = secondary, VerticalAlignment = VerticalAlignment.Center
+        };
+        Grid.SetColumn(samplesText, 0);
+        Grid.SetColumn(burnText,    1);
+        statsRow.Children.Add(samplesText);
+        statsRow.Children.Add(burnText);
 
         var sparkline = new SparklineControl
         {
-            Height    = 32,
-            Margin    = new Thickness(8, 8, 8, 8),
+            Height    = 40,
+            Margin    = new Thickness(8, 0, 8, 8),
             LineColor = Color.FromRgb(0xF9, 0x73, 0x16),
             Data      = limit.BurnHistory,
         };
+
+        var cardContent = new StackPanel();
+        cardContent.Children.Add(statsRow);
+        cardContent.Children.Add(sparkline);
 
         var card = new Border
         {
@@ -246,7 +253,7 @@ public partial class PopupWindow : Window
             BorderBrush     = border,
             BorderThickness = new Thickness(1),
             Margin          = new Thickness(12, 0, 12, 0),
-            Child           = sparkline,
+            Child           = cardContent,
         };
 
         var sectionLabel = new TextBlock
@@ -258,7 +265,6 @@ public partial class PopupWindow : Window
 
         var section = new StackPanel();
         section.Children.Add(sectionLabel);
-        section.Children.Add(subtitle);
         section.Children.Add(card);
         return section;
     }
@@ -409,18 +415,35 @@ public partial class PopupWindow : Window
 
     // ── Settings ─────────────────────────────────────────────────────
 
+    private static readonly (string Label, int Seconds)[] RefreshIntervals =
+    [
+        ("1 min",  60),
+        ("2 min",  120),
+        ("3 min",  180),
+        ("4 min",  240),
+        ("5 min",  300),
+        ("10 min", 600),
+    ];
+
     private void InitSettings()
     {
         VersionLabel.Text    = $"v{Updater.CurrentVersion}";
         BetaToggle.IsChecked = Updater.BetaChannel;
         UpdateAboutSection();
 
-        var intervals = new[] { ("1 min", 60), ("2 min", 120), ("3 min", 180),
-                                ("4 min", 240), ("5 min", 300), ("10 min", 600) };
-        RefreshPicker.ItemsSource        = intervals;
-        RefreshPicker.DisplayMemberPath  = "Item1";
-        var idx = Array.FindIndex(intervals, x => x.Item2 == VM.RefreshInterval);
-        RefreshPicker.SelectedIndex      = idx < 0 ? 1 : idx;
+        // Populate ComboBox with ComboBoxItem — DisplayMemberPath doesn't bind reliably
+        // on ValueTuple at runtime so we build items explicitly.
+        RefreshPicker.SelectionChanged -= RefreshPicker_Changed;
+        RefreshPicker.Items.Clear();
+        int selectIdx = 1; // default: 2 min
+        for (int i = 0; i < RefreshIntervals.Length; i++)
+        {
+            var (label, seconds) = RefreshIntervals[i];
+            RefreshPicker.Items.Add(new ComboBoxItem { Content = label, Tag = seconds });
+            if (seconds == VM.RefreshInterval) selectIdx = i;
+        }
+        RefreshPicker.SelectedIndex = selectIdx;
+        RefreshPicker.SelectionChanged += RefreshPicker_Changed;
 
         AuthPanel.Children.Clear();
         var dot = new System.Windows.Shapes.Ellipse
@@ -429,15 +452,16 @@ public partial class PopupWindow : Window
             Fill = VM.IsSignedIn ? Brushes.LimeGreen : Brushes.Orange,
             VerticalAlignment = VerticalAlignment.Center,
         };
-        var label = new TextBlock
+        var label2 = new TextBlock
         {
             Text = VM.IsSignedIn ? $"Signed in — {VM.UserEmail}" : "Not signed in",
-            FontSize = 13, FontWeight = FontWeights.SemiBold, Foreground = (SolidColorBrush)Application.Current.Resources["TextBrush"],
+            FontSize = 13, FontWeight = FontWeights.SemiBold,
+            Foreground = (SolidColorBrush)Application.Current.Resources["TextBrush"],
             VerticalAlignment = VerticalAlignment.Center,
         };
         var authRow = new StackPanel { Orientation = Orientation.Horizontal };
         authRow.Children.Add(dot);
-        authRow.Children.Add(label);
+        authRow.Children.Add(label2);
         AuthPanel.Children.Add(authRow);
 
         SignOutButton.Visibility = VM.IsSignedIn ? Visibility.Visible : Visibility.Collapsed;
@@ -521,10 +545,10 @@ public partial class PopupWindow : Window
 
     private void RefreshPicker_Changed(object s, SelectionChangedEventArgs e)
     {
-        if (RefreshPicker.SelectedItem is ValueTuple<string, int> selected)
+        if (RefreshPicker.SelectedItem is ComboBoxItem item && item.Tag is int seconds)
         {
-            VM.RefreshInterval = selected.Item2;
-            ((App)Application.Current).ScheduleTimer(selected.Item2);
+            VM.RefreshInterval = seconds;
+            ((App)Application.Current).ScheduleTimer(seconds);
         }
     }
 
