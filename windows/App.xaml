@@ -1,19 +1,20 @@
 <Application x:Class="ClaudeCheckerWindows.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:po="http://schemas.microsoft.com/winfx/2006/xaml/presentation/options"
              ShutdownMode="OnExplicitShutdown">
     <Application.Resources>
-        <SolidColorBrush x:Key="BackgroundBrush"   Color="#F3F3F3"/>
-        <SolidColorBrush x:Key="CardBrush"         Color="#FFFFFF"/>
-        <SolidColorBrush x:Key="AccentBrush"       Color="#F97316"/>
-        <SolidColorBrush x:Key="TextBrush"         Color="#1C1C1C"/>
-        <SolidColorBrush x:Key="SecondaryBrush"    Color="#6E6E6E"/>
-        <SolidColorBrush x:Key="BorderBrush"       Color="#E0E0E0"/>
-        <SolidColorBrush x:Key="BlueBrush"         Color="#0078D4"/>
-        <SolidColorBrush x:Key="ButtonBrush"       Color="#FFFFFF"/>
-        <SolidColorBrush x:Key="SurfaceBrush"      Color="#FAFAFA"/>
-        <SolidColorBrush x:Key="BannerBgBrush"     Color="#E8F2FB"/>
-        <SolidColorBrush x:Key="BannerBorderBrush" Color="#B3D6F5"/>
+        <SolidColorBrush x:Key="BackgroundBrush"   Color="#F3F3F3" po:Freeze="False"/>
+        <SolidColorBrush x:Key="CardBrush"         Color="#FFFFFF" po:Freeze="False"/>
+        <SolidColorBrush x:Key="AccentBrush"       Color="#F97316" po:Freeze="False"/>
+        <SolidColorBrush x:Key="TextBrush"         Color="#1C1C1C" po:Freeze="False"/>
+        <SolidColorBrush x:Key="SecondaryBrush"    Color="#6E6E6E" po:Freeze="False"/>
+        <SolidColorBrush x:Key="BorderBrush"       Color="#E0E0E0" po:Freeze="False"/>
+        <SolidColorBrush x:Key="BlueBrush"         Color="#0078D4" po:Freeze="False"/>
+        <SolidColorBrush x:Key="ButtonBrush"       Color="#FFFFFF" po:Freeze="False"/>
+        <SolidColorBrush x:Key="SurfaceBrush"      Color="#FAFAFA" po:Freeze="False"/>
+        <SolidColorBrush x:Key="BannerBgBrush"     Color="#E8F2FB" po:Freeze="False"/>
+        <SolidColorBrush x:Key="BannerBorderBrush" Color="#B3D6F5" po:Freeze="False"/>
 
         <Style x:Key="HeaderText" TargetType="TextBlock">
             <Setter Property="FontSize"   Value="10"/>
