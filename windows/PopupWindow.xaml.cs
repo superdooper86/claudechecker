@@ -55,6 +55,13 @@ public partial class PopupWindow : Window
         CardsPanel.Children.Clear();
         foreach (var limit in VM.Limits)
             CardsPanel.Children.Add(BuildCard(limit));
+
+        var fiveHour = VM.Limits.FirstOrDefault(l => l.Window == WindowKind.FiveHour);
+        if (fiveHour != null && fiveHour.BurnHistory.Count > 0)
+            CardsPanel.Children.Add(BuildDiarySection(fiveHour));
+
+        if (VM.ExtraUsage?.IsEnabled == true)
+            CardsPanel.Children.Add(BuildExtraUsageSection());
     }
 
     private static UIElement BuildCard(AgentLimit limit)
@@ -180,12 +187,132 @@ public partial class PopupWindow : Window
         return section;
     }
 
+    private static UIElement BuildDiarySection(AgentLimit limit)
+    {
+        var text      = (SolidColorBrush)Application.Current.Resources["TextBrush"];
+        var secondary = (SolidColorBrush)Application.Current.Resources["SecondaryBrush"];
+        var border    = (SolidColorBrush)Application.Current.Resources["BorderBrush"];
+
+        var samples = limit.BurnHistory.Count;
+        var avgBurn = limit.BurnRate;
+
+        var subtitle = new TextBlock
+        {
+            Text       = $"{samples} samples · {avgBurn:F1}%/h avg burn rate",
+            FontSize   = 11,
+            Foreground = secondary,
+            Margin     = new Thickness(16, 0, 16, 6),
+        };
+
+        var sparkline = new SparklineControl
+        {
+            Height    = 32,
+            Margin    = new Thickness(8, 8, 8, 8),
+            LineColor = Color.FromRgb(0xF9, 0x73, 0x16),
+            Data      = limit.BurnHistory,
+        };
+
+        var card = new Border
+        {
+            Background      = (SolidColorBrush)Application.Current.Resources["CardBrush"],
+            CornerRadius    = new CornerRadius(6),
+            BorderBrush     = border,
+            BorderThickness = new Thickness(1),
+            Margin          = new Thickness(12, 0, 12, 0),
+            Child           = sparkline,
+        };
+
+        var sectionLabel = new TextBlock
+        {
+            Text   = "SESSION DIARY",
+            Style  = (Style)Application.Current.Resources["HeaderText"],
+            Margin = new Thickness(16, 12, 16, 6),
+        };
+
+        var section = new StackPanel();
+        section.Children.Add(sectionLabel);
+        section.Children.Add(subtitle);
+        section.Children.Add(card);
+        return section;
+    }
+
+    private UIElement BuildExtraUsageSection()
+    {
+        var text      = (SolidColorBrush)Application.Current.Resources["TextBrush"];
+        var secondary = (SolidColorBrush)Application.Current.Resources["SecondaryBrush"];
+        var border    = (SolidColorBrush)Application.Current.Resources["BorderBrush"];
+        var accent    = new SolidColorBrush(Color.FromRgb(0xF9, 0x73, 0x16));
+
+        var overage  = VM.Overage;
+        var prepaid  = VM.Prepaid;
+        var currency = VM.ExtraUsage?.Currency ?? overage?.Currency ?? "$";
+
+        var spent   = overage?.UsedCredits         ?? 0;
+        var limit   = overage?.MonthlyCreditLimit  ?? 0;
+        var balance = prepaid?.Amount              ?? 0;
+
+        UIElement MakeRow(string label, string value)
+        {
+            var row = new Grid { Margin = new Thickness(0, 3, 0, 3) };
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            var lbl = new TextBlock { Text = label, FontSize = 12, Foreground = secondary };
+            var val = new TextBlock { Text = value, FontSize = 12, FontWeight = FontWeights.Medium, Foreground = text };
+            Grid.SetColumn(lbl, 0);
+            Grid.SetColumn(val, 1);
+            row.Children.Add(lbl);
+            row.Children.Add(val);
+            return row;
+        }
+
+        var contentPanel = new StackPanel { Margin = new Thickness(12, 10, 12, 10) };
+        contentPanel.Children.Add(MakeRow("Spent",   $"{currency}{spent:F2}"));
+        if (limit   > 0) contentPanel.Children.Add(MakeRow("Limit",   $"{currency}{limit:F2}"));
+        if (balance > 0) contentPanel.Children.Add(MakeRow("Balance", $"{currency}{balance:F2}"));
+
+        if (limit > 0)
+        {
+            var pct = Math.Min(spent / limit * 100, 100);
+            contentPanel.Children.Add(new ProgressBar
+            {
+                Value           = pct, Maximum = 100, Height = 4,
+                Margin          = new Thickness(0, 6, 0, 0),
+                Foreground      = accent,
+                Background      = new SolidColorBrush(Color.FromArgb(20, 0, 0, 0)),
+                BorderThickness = new Thickness(0),
+            });
+        }
+
+        var card = new Border
+        {
+            Background      = (SolidColorBrush)Application.Current.Resources["CardBrush"],
+            CornerRadius    = new CornerRadius(6),
+            BorderBrush     = border,
+            BorderThickness = new Thickness(1),
+            Margin          = new Thickness(12, 0, 12, 0),
+            Child           = contentPanel,
+        };
+
+        var sectionLabel = new TextBlock
+        {
+            Text   = "EXTRA USAGE CREDITS",
+            Style  = (Style)Application.Current.Resources["HeaderText"],
+            Margin = new Thickness(16, 12, 16, 6),
+        };
+
+        var section = new StackPanel();
+        section.Children.Add(sectionLabel);
+        section.Children.Add(card);
+        return section;
+    }
+
     // ── State updates ────────────────────────────────────────────────
 
     private void OnVmChanged(string? prop)
     {
         if (prop is nameof(UsageViewModel.Limits) or nameof(UsageViewModel.IsLoading)
-                 or nameof(UsageViewModel.LastUpdated) or nameof(UsageViewModel.ErrorMessage))
+                 or nameof(UsageViewModel.LastUpdated) or nameof(UsageViewModel.ErrorMessage)
+                 or nameof(UsageViewModel.ExtraUsage) or nameof(UsageViewModel.Overage) or nameof(UsageViewModel.Prepaid))
         {
             RebuildCards();
             UpdateFooter();
