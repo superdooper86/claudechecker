@@ -14,8 +14,8 @@ namespace ClaudeCheckerWindows;
 
 public class UpdateManager : INotifyPropertyChanged
 {
-    private const string StableUrl = "https://raw.githubusercontent.com/superdooper86/claudechecker/refs/heads/main/version.json";
-    private const string BetaUrl   = "https://raw.githubusercontent.com/superdooper86/claudechecker/refs/heads/main/version-beta.json";
+    private const string StableUrl = "https://raw.githubusercontent.com/superdooper86/claudechecker/refs/heads/main/version-windows.json";
+    private const string BetaUrl   = "https://raw.githubusercontent.com/superdooper86/claudechecker/refs/heads/main/version-windows-beta.json";
 
     private bool   _updateAvailable;
     private string _latestVersion  = "";
