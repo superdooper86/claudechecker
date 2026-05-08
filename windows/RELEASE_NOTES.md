@@ -1,6 +1,7 @@
-## What's new in beta.18
+## What's new in beta.19
 
-- Fixed startup crash caused by frozen WPF brushes
-- Added system dark/light theme support (auto-detected, updates every 5 seconds)
-- Native centered window instead of menubar popup
-- Update notifications now work correctly for pre-release builds
+- Fixed dark mode: button hover no longer white, ComboBox fully themed
+- Fixed logo and version badge in Settings panel
+- Fixed signed-in email showing blank (TextBrush instead of hardcoded white)
+- Fixed session limits not loading: org ID now fetched dynamically from API
+- Added anthropic-client-platform header for correct API responses
