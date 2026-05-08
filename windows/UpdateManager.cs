@@ -48,8 +48,8 @@ public class UpdateManager : INotifyPropertyChanged
         set
         {
             Set(ref _betaChannel, value);
-            Properties.Settings.Default.BetaChannel = value;
-            Properties.Settings.Default.Save();
+            AppSettings.Default.BetaChannel = value;
+            AppSettings.Default.Save();
         }
     }
 
@@ -59,7 +59,7 @@ public class UpdateManager : INotifyPropertyChanged
 
     public UpdateManager()
     {
-        _betaChannel = Properties.Settings.Default.BetaChannel;
+        _betaChannel = AppSettings.Default.BetaChannel;
     }
 
     public async Task CheckForUpdatesAsync()
