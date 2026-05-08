@@ -429,7 +429,9 @@ struct SparklineView: View {
 
     var body: some View {
         GeometryReader { geo in
-            if data.count > 1 {
+            let plotData = data.count == 1 ? [data[0], data[0]] : data
+            if plotData.count > 1 {
+                let data = plotData
                 let w = geo.size.width
                 let h = geo.size.height
                 let minV = data.min() ?? 0
@@ -1169,4 +1171,5 @@ struct UpdateSheet: View {
         .frame(width: 380)
     }
 }
+
 
