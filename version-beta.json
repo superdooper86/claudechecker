@@ -1,5 +1,5 @@
 {
-  "version": "1.1.4-beta.5",
-  "url": "https://github.com/superdooper86/claudechecker/releases/download/v1.1.4-beta.5/ClaudeChecker.zip",
-  "notes": "## What's new in v1.1.4-beta.5\n\n### Improvements\n- Bootstrap API call consolidated — org ID, email, and plan name now fetched in a single request per refresh"
+  "version": "1.1.4-beta.6",
+  "url": "https://github.com/superdooper86/claudechecker/releases/download/v1.1.4-beta.6/ClaudeChecker.zip",
+  "notes": "## What's new in v1.1.4-beta.6\n\n### UI improvement\n- Session Diary card: removed the Claude icon and header row; now shows sample count and avg burn rate left/right with the sparkline below — matching the cleaner Windows layout"
 }
