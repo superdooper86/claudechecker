@@ -66,16 +66,7 @@
 
             <!-- Cards scroll area -->
             <ScrollViewer VerticalScrollBarVisibility="Auto">
-                <StackPanel Margin="0,4,0,4">
-                    <Border x:Name="DebugBanner" Visibility="Collapsed"
-                            Background="{DynamicResource CardBrush}"
-                            BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
-                            CornerRadius="6" Margin="12,4,12,4" Padding="12,8">
-                        <TextBlock x:Name="DebugBannerText" FontSize="10" FontFamily="Consolas"
-                                   Foreground="{DynamicResource SecondaryBrush}" TextWrapping="Wrap"/>
-                    </Border>
-                    <StackPanel x:Name="CardsPanel"/>
-                </StackPanel>
+                <StackPanel x:Name="CardsPanel" Margin="0,4,0,4"/>
             </ScrollViewer>
         </DockPanel>
 
@@ -193,10 +184,6 @@
                                 </StackPanel>
                             </Grid>
                         </Border>
-
-                        <TextBlock x:Name="DebugText" FontSize="10" Foreground="{DynamicResource SecondaryBrush}"
-                                   TextWrapping="Wrap" Margin="0,12,0,0" FontFamily="Consolas"
-                                   Visibility="Collapsed"/>
 
                     </StackPanel>
                 </ScrollViewer>
