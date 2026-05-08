@@ -75,7 +75,7 @@ public partial class LoginWindow : Window
             msgHandler = (_, args) =>
             {
                 Browser.CoreWebView2.WebMessageReceived -= msgHandler;
-                tcs.TrySetResult(args.WebMessageAsString);
+                tcs.TrySetResult(args.WebMessageAsJson);
             };
             Browser.CoreWebView2.WebMessageReceived += msgHandler;
 
@@ -95,12 +95,12 @@ public partial class LoginWindow : Window
                 if(!id){
                     let pu=null;
                     try{pu=await(await fetch('/api/usage',h)).json();}catch(e3){}
-                    window.chrome.webview.postMessage(JSON.stringify({email:e,orgId:null,usage:(pu&&!pu.error?pu:null),debug:'no-org|bkeys:'+bkeys+'|akeys:'+akeys}));
+                    window.chrome.webview.postMessage({email:e,orgId:null,usage:(pu&&!pu.error?pu:null),debug:'no-org|bkeys:'+bkeys+'|akeys:'+akeys});
                     return;
                 }
                 const u=await(await fetch('/api/organizations/'+id+'/usage',h)).json();
-                window.chrome.webview.postMessage(JSON.stringify({email:e,orgId:id,usage:u,debug:'orgSrc:'+orgSrc+'|bkeys:'+bkeys+'|akeys:'+akeys}));
-            }catch(ex){window.chrome.webview.postMessage(JSON.stringify({error:String(ex)}));}})()";
+                window.chrome.webview.postMessage({email:e,orgId:id,usage:u,debug:'orgSrc:'+orgSrc+'|bkeys:'+bkeys+'|akeys:'+akeys});
+            }catch(ex){window.chrome.webview.postMessage({error:String(ex)});}})()";
 
             await Browser.CoreWebView2.ExecuteScriptAsync(script);
 
