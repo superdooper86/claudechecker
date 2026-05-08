@@ -185,6 +185,10 @@
                             </Grid>
                         </Border>
 
+                        <TextBlock x:Name="DebugText" FontSize="10" Foreground="{DynamicResource SecondaryBrush}"
+                                   TextWrapping="Wrap" Margin="0,12,0,0" FontFamily="Consolas"
+                                   Visibility="Collapsed"/>
+
                     </StackPanel>
                 </ScrollViewer>
             </DockPanel>
