@@ -220,10 +220,12 @@ public class UsageViewModel : INotifyPropertyChanged
             AppSettings.Default.Save();
 
             var usageUrl  = $"https://claude.ai/api/organizations/{orgId}/usage";
-            var ut = http.GetAsync(usageUrl);
-            var ot = FetchAsync<OverageSpendLimit>(http, $"https://claude.ai/api/organizations/{orgId}/overage_spend_limit");
-            var pt = FetchAsync<PrepaidCredits>(http, $"https://claude.ai/api/organizations/{orgId}/prepaid/credits");
-            await Task.WhenAll(ut, ot, pt);
+            var ut  = http.GetAsync(usageUrl);
+            var ot  = FetchAsync<OverageSpendLimit>(http, $"https://claude.ai/api/organizations/{orgId}/overage_spend_limit");
+            var pt  = FetchAsync<PrepaidCredits>(http, $"https://claude.ai/api/organizations/{orgId}/prepaid/credits");
+            // Fetch org details as a fallback source for capabilities (bootstrap omits them via HttpClient)
+            var odt = http.GetAsync($"https://claude.ai/api/organizations/{orgId}");
+            await Task.WhenAll(ut, ot, pt, odt);
 
             var usageResp = ut.Result;
             if (!usageResp.IsSuccessStatusCode)
@@ -231,6 +233,32 @@ public class UsageViewModel : INotifyPropertyChanged
 
             var usageJson = await usageResp.Content.ReadAsStringAsync();
             var usage     = JsonSerializer.Deserialize<UsageResponse>(usageJson, JsonOpts);
+
+            // Try org endpoint for capabilities if bootstrap didn't return them
+            if (string.IsNullOrEmpty(planLabel) && odt.Result.IsSuccessStatusCode)
+            {
+                try
+                {
+                    var orgJson = await odt.Result.Content.ReadAsStringAsync();
+                    using var orgDoc = JsonDocument.Parse(orgJson);
+                    if (orgDoc.RootElement.TryGetProperty("capabilities", out var orgCaps) &&
+                        orgCaps.ValueKind == JsonValueKind.Array)
+                    {
+                        foreach (var cap in orgCaps.EnumerateArray())
+                        {
+                            var s = cap.GetString() ?? "";
+                            if (s.StartsWith("claude_", StringComparison.OrdinalIgnoreCase))
+                            {
+                                var name = s.Substring("claude_".Length);
+                                if (name.Length > 0)
+                                    planLabel = char.ToUpper(name[0]) + name.Substring(1).ToLower();
+                                break;
+                            }
+                        }
+                    }
+                }
+                catch { /* best-effort */ }
+            }
 
             // Persist fresh usage so cache reflects live data
             AppSettings.Default.UsageJson = usageJson;
