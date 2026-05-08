@@ -247,9 +247,10 @@ public partial class PopupWindow : Window
         var prepaid  = VM.Prepaid;
         var currency = VM.ExtraUsage?.Currency ?? overage?.Currency ?? "$";
 
-        var spent   = overage?.UsedCredits         ?? 0;
-        var limit   = overage?.MonthlyCreditLimit  ?? 0;
-        var balance = prepaid?.Amount              ?? 0;
+        // Fall back to extra_usage fields when the overage/prepaid endpoints return nothing
+        var spent   = overage?.UsedCredits        ?? VM.ExtraUsage?.UsedCredits  ?? 0;
+        var limit   = overage?.MonthlyCreditLimit ?? VM.ExtraUsage?.MonthlyLimit ?? 0;
+        var balance = prepaid?.Amount             ?? 0;
 
         UIElement MakeRow(string label, string value)
         {
