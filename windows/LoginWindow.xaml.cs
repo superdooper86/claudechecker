@@ -83,8 +83,9 @@ public partial class LoginWindow : Window
                 const h={headers:{accept:'application/json'}};
                 const b=await(await fetch('/api/bootstrap',h)).json();
                 const rawB=JSON.stringify(b).slice(0,600);
-                let id=b?.memberships?.[0]?.organization?.uuid||b?.organizations?.[0]?.uuid
-                        ||b?.default_organization?.uuid||b?.account?.uuid||null;
+                let id=b?.account?.memberships?.[0]?.organization?.uuid
+                        ||b?.memberships?.[0]?.organization?.uuid||b?.organizations?.[0]?.uuid
+                        ||b?.default_organization?.uuid||null;
                 const e=b?.account?.email_address||b?.account?.email||b?.email||null;
                 let orgSrc='bootstrap';
                 if(!id){
