@@ -79,14 +79,12 @@ public class UsageViewModel : INotifyPropertyChanged
 
         try
         {
-            var cookies = await GetCookiesAsync();
+            // Check whether we have any evidence of a prior successful sign-in
+            bool hasCachedAuth = !string.IsNullOrEmpty(AppSettings.Default.Email)  ||
+                                 !string.IsNullOrEmpty(AppSettings.Default.OrgId)  ||
+                                 !string.IsNullOrEmpty(AppSettings.Default.CookieStore);
 
-            // Check if we have any persistent proof that the user authenticated
-            bool hasCookies    = cookies.Count > 0;
-            bool hasCachedAuth = !string.IsNullOrEmpty(AppSettings.Default.Email) ||
-                                 !string.IsNullOrEmpty(AppSettings.Default.OrgId);
-
-            if (!hasCookies && !hasCachedAuth)
+            if (!hasCachedAuth)
             {
                 await Application.Current.Dispatcher.InvokeAsync(() =>
                 {
@@ -97,9 +95,6 @@ public class UsageViewModel : INotifyPropertyChanged
                 return;
             }
 
-            // HttpClient refresh — WebView2 is NOT used here to avoid spawning a heavy
-            // browser process every refresh cycle (causes memory accumulation).
-            // SaveAndClose at login time is responsible for fetching live data via WebView2.
             List<AgentLimit> limits    = [];
             OverageSpendLimit? overage = null;
             PrepaidCredits?    prepaid = null;
@@ -107,27 +102,46 @@ public class UsageViewModel : INotifyPropertyChanged
             string? email = null, orgId = null, planLabel = null;
             string? refreshError = null;
 
-            if (hasCookies)
+            // Primary path: persistent background WebView2 (always-live cookies, same as macOS).
+            // Falls back to HttpClient with saved cookies only if the browser isn't ready yet
+            // (i.e., the very first refresh that races with InitAsync completing).
+            if (App.BackgroundBrowser.IsReady)
             {
                 try
                 {
-                    (limits, overage, prepaid, extraUsage, email, orgId, planLabel, _) =
-                        await TryHttpRefreshAsync(cookies);
+                    (limits, overage, prepaid, extraUsage, email, orgId, planLabel) =
+                        await TryBrowserRefreshAsync();
                 }
                 catch (Exception ex)
                 {
                     refreshError = ex.Message;
                 }
             }
+            else
+            {
+                var cookies = await GetCookiesAsync();
+                if (cookies.Count > 0)
+                {
+                    try
+                    {
+                        (limits, overage, prepaid, extraUsage, email, orgId, planLabel, _) =
+                            await TryHttpRefreshAsync(cookies);
+                    }
+                    catch (Exception ex)
+                    {
+                        refreshError = ex.Message;
+                    }
+                }
+            }
 
-            // Fill in any blanks from cached values saved at login time
-            if (string.IsNullOrEmpty(email))  email  = AppSettings.Default.Email;
-            if (string.IsNullOrEmpty(orgId))  orgId  = AppSettings.Default.OrgId;
+            // Fill in blanks from cache
+            if (string.IsNullOrEmpty(email)) email = AppSettings.Default.Email;
+            if (string.IsNullOrEmpty(orgId)) orgId = AppSettings.Default.OrgId;
             if (limits.Count == 0 && !string.IsNullOrEmpty(AppSettings.Default.UsageJson))
             {
                 try
                 {
-                    var cached = System.Text.Json.JsonSerializer.Deserialize<UsageResponse>(
+                    var cached = JsonSerializer.Deserialize<UsageResponse>(
                         AppSettings.Default.UsageJson, JsonOpts);
                     limits = BuildLimits(cached);
                 }
@@ -152,12 +166,11 @@ public class UsageViewModel : INotifyPropertyChanged
                     Limits    = limits;
                     Overage   = overage;
                     Prepaid   = prepaid;
-                    // Only clear ExtraUsage if the API explicitly disables it; keep cached value
-                    // if the HTTP endpoint omits the field (it often does for non-browser clients)
+                    // Only replace ExtraUsage when the response explicitly includes it
                     if (extraUsage != null) ExtraUsage = extraUsage;
                 }
                 if (!string.IsNullOrEmpty(planLabel)) PlanLabel = planLabel;
-                if (!string.IsNullOrEmpty(email)) UserEmail = email;
+                if (!string.IsNullOrEmpty(email))     UserEmail = email;
                 IsSignedIn   = true;
                 ErrorMessage = refreshError;
                 LastUpdated  = DateTime.Now;
@@ -174,211 +187,138 @@ public class UsageViewModel : INotifyPropertyChanged
         }
     }
 
+    // ── Browser-based refresh (primary path) ─────────────────────────────────
+    // Runs JS on the persistent claude.ai page — same live cookies as macOS WKWebView.
+    // Fetches bootstrap (orgId/email/planLabel) + usage + overage + prepaid in one shot.
+
+    private async Task<(List<AgentLimit>, OverageSpendLimit?, PrepaidCredits?, ExtraUsage?, string?, string?, string?)>
+        TryBrowserRefreshAsync()
+    {
+        const string script = @"(async()=>{try{
+            const h={headers:{accept:'application/json'}};
+            const b=await(await fetch('/api/bootstrap',h)).json();
+            if(b?.error_type==='authentication_error'){window.chrome.webview.postMessage({authError:true});return;}
+            const org0=b?.account?.memberships?.[0]?.organization;
+            let id=org0?.uuid||b?.memberships?.[0]?.organization?.uuid||b?.organizations?.[0]?.uuid||null;
+            const email=b?.account?.email_address||b?.account?.email||null;
+            const caps=org0?.capabilities||[];
+            const capStr=caps.find(c=>typeof c==='string'&&c.startsWith('claude_'))||null;
+            const planLabel=capStr?(capStr.slice(7,8).toUpperCase()+capStr.slice(8).toLowerCase()):null;
+            if(!id){
+                try{const ol=await(await fetch('/api/organizations',h)).json();
+                    if(Array.isArray(ol)&&ol.length>0)id=ol[0]?.uuid||null;}catch(e2){}
+            }
+            if(!id){window.chrome.webview.postMessage({noOrg:true,email});return;}
+            const [u,ov,pp]=await Promise.all([
+                fetch('/api/organizations/'+id+'/usage',h).then(r=>r.json()),
+                fetch('/api/organizations/'+id+'/overage_spend_limit',h).then(r=>r.ok?r.json():null).catch(()=>null),
+                fetch('/api/organizations/'+id+'/prepaid/credits',h).then(r=>r.ok?r.json():null).catch(()=>null)
+            ]);
+            window.chrome.webview.postMessage({email,orgId:id,planLabel,usage:u,overage:ov,prepaid:pp});
+        }catch(ex){window.chrome.webview.postMessage({error:String(ex)});}})()";
+
+        var json = await Application.Current.Dispatcher.InvokeAsync(
+            () => App.BackgroundBrowser.RunScriptAsync(script)).Task.Unwrap();
+
+        if (string.IsNullOrEmpty(json) || json == "null")
+            throw new Exception("Browser refresh returned no data.");
+
+        using var doc = JsonDocument.Parse(json);
+        var root = doc.RootElement;
+
+        if (root.TryGetProperty("authError", out _))
+            throw new Exception("Session expired — please re-authenticate.");
+        if (root.TryGetProperty("error", out var errEl))
+            throw new Exception("Browser script error: " + errEl.GetString());
+        if (root.TryGetProperty("noOrg", out _))
+            throw new Exception("Could not determine organization ID.");
+
+        string? email     = root.TryGetProperty("email",     out var em) && em.ValueKind == JsonValueKind.String ? em.GetString() : null;
+        string? orgId     = root.TryGetProperty("orgId",     out var oi) && oi.ValueKind == JsonValueKind.String ? oi.GetString() : null;
+        string? planLabel = root.TryGetProperty("planLabel", out var pl) && pl.ValueKind == JsonValueKind.String ? pl.GetString() : null;
+
+        string?            usageJson   = null;
+        UsageResponse?     usage       = null;
+        string?            overageJson = null;
+        OverageSpendLimit? overage     = null;
+        string?            prepaidJson = null;
+        PrepaidCredits?    prepaid     = null;
+
+        if (root.TryGetProperty("usage", out var us) && us.ValueKind == JsonValueKind.Object)
+        {
+            usageJson = us.GetRawText();
+            usage     = JsonSerializer.Deserialize<UsageResponse>(usageJson, JsonOpts);
+        }
+        if (root.TryGetProperty("overage", out var ov) && ov.ValueKind == JsonValueKind.Object)
+        {
+            overageJson = ov.GetRawText();
+            overage     = JsonSerializer.Deserialize<OverageSpendLimit>(overageJson, JsonOpts);
+        }
+        if (root.TryGetProperty("prepaid", out var pp) && pp.ValueKind == JsonValueKind.Object)
+        {
+            prepaidJson = pp.GetRawText();
+            prepaid     = JsonSerializer.Deserialize<PrepaidCredits>(prepaidJson, JsonOpts);
+        }
+
+        // Persist fresh data to cache
+        if (usageJson   != null)                    AppSettings.Default.UsageJson   = usageJson;
+        if (!string.IsNullOrEmpty(email))           AppSettings.Default.Email       = email!;
+        if (!string.IsNullOrEmpty(orgId))           AppSettings.Default.OrgId       = orgId!;
+        if (!string.IsNullOrEmpty(planLabel))       AppSettings.Default.PlanLabel   = planLabel!;
+        if (overageJson != null)                    AppSettings.Default.OverageJson = overageJson;
+        if (prepaidJson != null)                    AppSettings.Default.PrepaidJson = prepaidJson;
+        AppSettings.Default.Save();
+
+        return (BuildLimits(usage), overage, prepaid, usage?.ExtraUsage, email, orgId, planLabel);
+    }
+
+    // ── HttpClient refresh (fallback — used only before browser is ready) ────
+
     private async Task<(List<AgentLimit>, OverageSpendLimit?, PrepaidCredits?, ExtraUsage?, string?, string?, string?, bool)>
         TryHttpRefreshAsync(List<(string Name, string Value, string Domain, string Path)> cookies)
     {
-        try
-        {
-            using var http = BuildClient(cookies);
-            var bootstrapResp = await http.GetAsync("https://claude.ai/api/bootstrap");
-            if ((int)bootstrapResp.StatusCode is 401 or 403)
-                throw new Exception("Session expired — please re-authenticate.");
-            if (!bootstrapResp.IsSuccessStatusCode)
-                throw new Exception($"Bootstrap failed ({(int)bootstrapResp.StatusCode}).");
+        using var http = BuildClient(cookies);
+        var bootstrapResp = await http.GetAsync("https://claude.ai/api/bootstrap");
+        if ((int)bootstrapResp.StatusCode is 401 or 403)
+            throw new Exception("Session expired — please re-authenticate.");
+        if (!bootstrapResp.IsSuccessStatusCode)
+            throw new Exception($"Bootstrap failed ({(int)bootstrapResp.StatusCode}).");
 
-            var bootstrapJson = await bootstrapResp.Content.ReadAsStringAsync();
-            // Targeted debug: log org property names + capabilities value so we can see
-            // exactly what the HttpClient bootstrap response contains
-            try
-            {
-                using var dbgDoc = System.Text.Json.JsonDocument.Parse(bootstrapJson);
-                var dbgRoot = dbgDoc.RootElement;
-                var dbg = $"len:{bootstrapJson.Length}";
-                if (dbgRoot.TryGetProperty("account", out var dbgAcct) &&
-                    dbgAcct.TryGetProperty("memberships", out var dbgMems) &&
-                    dbgMems.GetArrayLength() > 0 &&
-                    dbgMems[0].TryGetProperty("organization", out var dbgOrg))
-                {
-                    var keys = string.Join(",", dbgOrg.EnumerateObject().Select(p => p.Name));
-                    dbg += $"|org_keys:{keys}";
-                    if (dbgOrg.TryGetProperty("capabilities", out var dbgCaps))
-                        dbg += $"|caps:{dbgCaps.GetRawText()}";
-                    else
-                        dbg += "|caps:MISSING";
-                }
-                else
-                {
-                    dbg += "|no_memberships";
-                }
-                AppSettings.Default.DebugInfo = dbg;
-                AppSettings.Default.Save();
-            }
-            catch { /* debug only — never block refresh */ }
-            var (email, orgId, planLabel) = ParseBootstrap(bootstrapJson);
+        var bootstrapJson = await bootstrapResp.Content.ReadAsStringAsync();
+        var (email, orgId, planLabel) = ParseBootstrap(bootstrapJson);
 
-            if (string.IsNullOrEmpty(orgId))
-                orgId = await FetchOrgIdFromListAsync(http);
-            if (string.IsNullOrEmpty(orgId) && !string.IsNullOrEmpty(AppSettings.Default.OrgId))
-                orgId = AppSettings.Default.OrgId;
+        if (string.IsNullOrEmpty(orgId))
+            orgId = await FetchOrgIdFromListAsync(http);
+        if (string.IsNullOrEmpty(orgId) && !string.IsNullOrEmpty(AppSettings.Default.OrgId))
+            orgId = AppSettings.Default.OrgId;
 
-            if (string.IsNullOrEmpty(orgId))
-                return ([], null, null, null, email, orgId, planLabel, true);
+        if (string.IsNullOrEmpty(orgId))
+            return ([], null, null, null, email, orgId, planLabel, true);
 
-            AppSettings.Default.OrgId = orgId;
-            AppSettings.Default.Save();
+        AppSettings.Default.OrgId = orgId;
+        AppSettings.Default.Save();
 
-            var usageUrl  = $"https://claude.ai/api/organizations/{orgId}/usage";
-            var ut  = http.GetAsync(usageUrl);
-            var ot  = FetchAsync<OverageSpendLimit>(http, $"https://claude.ai/api/organizations/{orgId}/overage_spend_limit");
-            var pt  = FetchAsync<PrepaidCredits>(http, $"https://claude.ai/api/organizations/{orgId}/prepaid/credits");
-            // Fetch org details as a fallback source for capabilities (bootstrap omits them via HttpClient)
-            var odt = http.GetAsync($"https://claude.ai/api/organizations/{orgId}");
-            await Task.WhenAll(ut, ot, pt, odt);
+        var ut = http.GetAsync($"https://claude.ai/api/organizations/{orgId}/usage");
+        var ot = FetchAsync<OverageSpendLimit>(http, $"https://claude.ai/api/organizations/{orgId}/overage_spend_limit");
+        var pt = FetchAsync<PrepaidCredits>(http, $"https://claude.ai/api/organizations/{orgId}/prepaid/credits");
+        await Task.WhenAll(ut, ot, pt);
 
-            var usageResp = ut.Result;
-            if (!usageResp.IsSuccessStatusCode)
-                throw new Exception($"Usage fetch failed ({(int)usageResp.StatusCode}).");
+        var usageResp = ut.Result;
+        if (!usageResp.IsSuccessStatusCode)
+            throw new Exception($"Usage fetch failed ({(int)usageResp.StatusCode}).");
 
-            var usageJson = await usageResp.Content.ReadAsStringAsync();
-            var usage     = JsonSerializer.Deserialize<UsageResponse>(usageJson, JsonOpts);
+        var usageJson = await usageResp.Content.ReadAsStringAsync();
+        var usage     = JsonSerializer.Deserialize<UsageResponse>(usageJson, JsonOpts);
+        var overage   = ot.Result;
+        var prepaid   = pt.Result;
 
-            // Try org endpoint for capabilities if bootstrap didn't return them
-            if (string.IsNullOrEmpty(planLabel) && odt.Result.IsSuccessStatusCode)
-            {
-                try
-                {
-                    var orgJson = await odt.Result.Content.ReadAsStringAsync();
-                    using var orgDoc = JsonDocument.Parse(orgJson);
-                    if (orgDoc.RootElement.TryGetProperty("capabilities", out var orgCaps) &&
-                        orgCaps.ValueKind == JsonValueKind.Array)
-                    {
-                        foreach (var cap in orgCaps.EnumerateArray())
-                        {
-                            var s = cap.GetString() ?? "";
-                            if (s.StartsWith("claude_", StringComparison.OrdinalIgnoreCase))
-                            {
-                                var name = s.Substring("claude_".Length);
-                                if (name.Length > 0)
-                                    planLabel = char.ToUpper(name[0]) + name.Substring(1).ToLower();
-                                break;
-                            }
-                        }
-                    }
-                }
-                catch { /* best-effort */ }
-            }
+        AppSettings.Default.UsageJson = usageJson;
+        if (!string.IsNullOrEmpty(planLabel)) AppSettings.Default.PlanLabel   = planLabel;
+        if (overage != null)                  AppSettings.Default.OverageJson = JsonSerializer.Serialize(overage);
+        if (prepaid != null)                  AppSettings.Default.PrepaidJson = JsonSerializer.Serialize(prepaid);
+        AppSettings.Default.Save();
 
-            // If HttpClient couldn't reach overage/prepaid endpoints (expired cf_clearance),
-            // fall back to the persistent background WebView2 which always has live cookies.
-            var overageResult = ot.Result;
-            var prepaidResult = pt.Result;
-            if ((overageResult == null || prepaidResult == null) && orgId != null)
-            {
-                try
-                {
-                    var browser = App.BackgroundBrowser;
-                    if (browser != null)
-                    {
-                        var wvScript = $@"(async()=>{{try{{
-                            const h={{headers:{{accept:'application/json'}}}};
-                            const [ov,pp]=await Promise.all([
-                                fetch('/api/organizations/{orgId}/overage_spend_limit',h).then(r=>r.ok?r.json():null).catch(()=>null),
-                                fetch('/api/organizations/{orgId}/prepaid/credits',h).then(r=>r.ok?r.json():null).catch(()=>null)
-                            ]);
-                            window.chrome.webview.postMessage({{overage:ov,prepaid:pp}});
-                        }}catch(ex){{window.chrome.webview.postMessage(null);}}}})()";
-
-                        var wvJson = await Application.Current.Dispatcher.InvokeAsync(
-                            () => browser.RunScriptAsync(wvScript)).Task.Unwrap();
-
-                        if (!string.IsNullOrEmpty(wvJson) && wvJson != "null")
-                        {
-                            using var wvDoc = JsonDocument.Parse(wvJson);
-                            var wvRoot = wvDoc.RootElement;
-                            if (overageResult == null && wvRoot.TryGetProperty("overage", out var ovEl)
-                                && ovEl.ValueKind == JsonValueKind.Object)
-                                overageResult = JsonSerializer.Deserialize<OverageSpendLimit>(ovEl.GetRawText(), JsonOpts);
-                            if (prepaidResult == null && wvRoot.TryGetProperty("prepaid", out var ppEl)
-                                && ppEl.ValueKind == JsonValueKind.Object)
-                                prepaidResult = JsonSerializer.Deserialize<PrepaidCredits>(ppEl.GetRawText(), JsonOpts);
-                        }
-                    }
-                }
-                catch { /* best-effort — never block the refresh */ }
-            }
-
-            // Persist fresh usage so cache reflects live data
-            AppSettings.Default.UsageJson = usageJson;
-            if (!string.IsNullOrEmpty(planLabel))  AppSettings.Default.PlanLabel   = planLabel;
-            if (overageResult != null) AppSettings.Default.OverageJson = JsonSerializer.Serialize(overageResult);
-            if (prepaidResult != null) AppSettings.Default.PrepaidJson = JsonSerializer.Serialize(prepaidResult);
-            AppSettings.Default.Save();
-
-            return (BuildLimits(usage), overageResult, prepaidResult, usage?.ExtraUsage, email, orgId, planLabel, true);
-        }
-        catch { throw; }
-    }
-
-    private static async Task<(List<AgentLimit>, string?, string?)> TryWebView2RefreshAsync()
-    {
-        try
-        {
-            const string script = @"(async()=>{try{
-                const h={headers:{accept:'application/json'}};
-                const b=await(await fetch('/api/bootstrap',h)).json();
-                let id=b?.account?.memberships?.[0]?.organization?.uuid
-                        ||b?.memberships?.[0]?.organization?.uuid||b?.organizations?.[0]?.uuid
-                        ||b?.default_organization?.uuid||null;
-                const em=b?.account?.email_address||b?.account?.email||b?.email||null;
-                if(!id){
-                    try{const ol=await(await fetch('/api/organizations',h)).json();
-                        if(Array.isArray(ol)&&ol.length>0)id=ol[0]?.uuid||null;}catch(e2){}
-                }
-                if(!id){
-                    let pu=null;
-                    try{pu=await(await fetch('/api/usage',h)).json();}catch(e3){}
-                    window.chrome.webview.postMessage({email:em,orgId:null,usage:(pu&&!pu.error?pu:null)});
-                    return;
-                }
-                const u=await(await fetch('/api/organizations/'+id+'/usage',h)).json();
-                window.chrome.webview.postMessage({email:em,orgId:id,usage:u});
-            }catch(ex){window.chrome.webview.postMessage(null);}})();";
-
-            var resultJson = await Application.Current.Dispatcher.InvokeAsync(async () =>
-            {
-                var host = new WebViewFetchWindow();
-                host.Show();
-                try   { return await host.FetchAsync("https://claude.ai", script); }
-                finally { host.Close(); }
-            }).Task.Unwrap();
-
-            if (resultJson == null || resultJson == "null") return ([], null, null);
-
-            using var doc = System.Text.Json.JsonDocument.Parse(resultJson);
-            var root = doc.RootElement;
-
-            string? email = root.TryGetProperty("email", out var em) && em.ValueKind == System.Text.Json.JsonValueKind.String
-                ? em.GetString() : null;
-            string? orgId = root.TryGetProperty("orgId", out var oi) && oi.ValueKind == System.Text.Json.JsonValueKind.String
-                ? oi.GetString() : null;
-
-            List<AgentLimit> limits = [];
-            if (root.TryGetProperty("usage", out var us) && us.ValueKind == System.Text.Json.JsonValueKind.Object)
-            {
-                var usage = System.Text.Json.JsonSerializer.Deserialize<UsageResponse>(
-                    us.GetRawText(), new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-                limits = BuildLimits(usage);
-
-                // Cache for next time
-                AppSettings.Default.UsageJson = us.GetRawText();
-                if (!string.IsNullOrEmpty(orgId)) AppSettings.Default.OrgId = orgId;
-                if (!string.IsNullOrEmpty(email)) AppSettings.Default.Email = email;
-                AppSettings.Default.Save();
-            }
-
-            return (limits, email, orgId);
-        }
-        catch { return ([], null, null); }
+        return (BuildLimits(usage), overage, prepaid, usage?.ExtraUsage, email, orgId, planLabel, true);
     }
 
     public async Task LoadFromCacheAsync()
@@ -418,7 +358,6 @@ public class UsageViewModel : INotifyPropertyChanged
             catch { }
         }
 
-        // Attach persisted burn history to cached limits
         foreach (var limit in limits)
         {
             var key = limit.Window.ToString();
@@ -428,7 +367,7 @@ public class UsageViewModel : INotifyPropertyChanged
 
         await Application.Current.Dispatcher.InvokeAsync(() =>
         {
-            if (!string.IsNullOrEmpty(email))                   UserEmail = email;
+            if (!string.IsNullOrEmpty(email))                        UserEmail  = email;
             if (!string.IsNullOrEmpty(AppSettings.Default.PlanLabel)) PlanLabel = AppSettings.Default.PlanLabel;
             Limits       = limits.Count > 0 ? limits : LoadPlaceholderLimits();
             Overage      = overage;
@@ -488,14 +427,14 @@ public class UsageViewModel : INotifyPropertyChanged
         http.DefaultRequestHeaders.Add("User-Agent",
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
             "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36");
-        http.DefaultRequestHeaders.Add("Origin",           "https://claude.ai");
-        http.DefaultRequestHeaders.Add("Referer",          "https://claude.ai/");
-        http.DefaultRequestHeaders.Add("sec-fetch-dest",   "empty");
-        http.DefaultRequestHeaders.Add("sec-fetch-mode",   "cors");
-        http.DefaultRequestHeaders.Add("sec-fetch-site",   "same-origin");
-        http.DefaultRequestHeaders.Add("sec-ch-ua",        "\"Chromium\";v=\"124\", \"Google Chrome\";v=\"124\"");
-        http.DefaultRequestHeaders.Add("sec-ch-ua-mobile", "?0");
-        http.DefaultRequestHeaders.Add("sec-ch-ua-platform", "\"Windows\"");
+        http.DefaultRequestHeaders.Add("Origin",              "https://claude.ai");
+        http.DefaultRequestHeaders.Add("Referer",             "https://claude.ai/");
+        http.DefaultRequestHeaders.Add("sec-fetch-dest",      "empty");
+        http.DefaultRequestHeaders.Add("sec-fetch-mode",      "cors");
+        http.DefaultRequestHeaders.Add("sec-fetch-site",      "same-origin");
+        http.DefaultRequestHeaders.Add("sec-ch-ua",           "\"Chromium\";v=\"124\", \"Google Chrome\";v=\"124\"");
+        http.DefaultRequestHeaders.Add("sec-ch-ua-mobile",    "?0");
+        http.DefaultRequestHeaders.Add("sec-ch-ua-platform",  "\"Windows\"");
         var cookieHeader = string.Join("; ", cookies.Select(c => $"{c.Name}={c.Value}"));
         http.DefaultRequestHeaders.Add("Cookie", cookieHeader);
         return http;
@@ -513,7 +452,6 @@ public class UsageViewModel : INotifyPropertyChanged
         catch { return null; }
     }
 
-    // Parse email and org ID out of bootstrap JSON (multiple fallback paths for org ID)
     private static (string? Email, string? OrgId, string? PlanLabel) ParseBootstrap(string json)
     {
         try
@@ -528,7 +466,6 @@ public class UsageViewModel : INotifyPropertyChanged
                 acct.TryGetProperty("email_address", out var em))
                 email = em.GetString();
 
-            // Path 1: account.memberships[0].organization.uuid  (Claude.ai personal/pro accounts)
             if (root.TryGetProperty("account", out var acctNode) &&
                 acctNode.TryGetProperty("memberships", out var mems) && mems.GetArrayLength() > 0)
             {
@@ -538,7 +475,6 @@ public class UsageViewModel : INotifyPropertyChanged
                     orgId = uuid.GetString();
             }
 
-            // Path 2: memberships[0].organization.uuid  (root-level, older API shape)
             if (string.IsNullOrEmpty(orgId) &&
                 root.TryGetProperty("memberships", out var rootMems) && rootMems.GetArrayLength() > 0)
             {
@@ -548,7 +484,6 @@ public class UsageViewModel : INotifyPropertyChanged
                     orgId = uuid.GetString();
             }
 
-            // Path 3: organizations[0].uuid  (flat list on root)
             if (string.IsNullOrEmpty(orgId) &&
                 root.TryGetProperty("organizations", out var orgs) && orgs.GetArrayLength() > 0)
             {
@@ -561,7 +496,7 @@ public class UsageViewModel : INotifyPropertyChanged
                 acctPlan.TryGetProperty("memberships", out var plMems) && plMems.GetArrayLength() > 0 &&
                 plMems[0].TryGetProperty("organization", out var plOrg) &&
                 plOrg.TryGetProperty("capabilities", out var caps) &&
-                caps.ValueKind == System.Text.Json.JsonValueKind.Array)
+                caps.ValueKind == JsonValueKind.Array)
             {
                 foreach (var cap in caps.EnumerateArray())
                 {
