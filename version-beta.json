@@ -1,5 +1,5 @@
 {
-  "version": "1.1.4-beta.2",
-  "url": "https://github.com/superdooper86/claudechecker/releases/download/v1.1.4-beta.2/ClaudeChecker.zip",
-  "notes": "## What's new in v1.1.4-beta.2\n\n### Improvements\n- Plan name (e.g. Pro, Max) is now read from the API instead of being hardcoded"
+  "version": "1.1.4-beta.4",
+  "url": "https://github.com/superdooper86/claudechecker/releases/download/v1.1.4-beta.4/ClaudeChecker.zip",
+  "notes": "## What's new in v1.1.4-beta.4\n\n### Bug fix\n- Plan name now updates correctly on every refresh (was only set on first launch)"
 }
