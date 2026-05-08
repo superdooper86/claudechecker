@@ -54,6 +54,8 @@ public static class ThemeManager
             Set(res, "SurfaceBrush",      Color.FromRgb(0x25, 0x25, 0x27));
             Set(res, "BannerBgBrush",     Color.FromRgb(0x1A, 0x31, 0x52));
             Set(res, "BannerBorderBrush", Color.FromRgb(0x2A, 0x4A, 0x72));
+            Set(res, "HoverBrush",        Color.FromRgb(0x4A, 0x4A, 0x4C));
+            Set(res, "BadgeBrush",        Color.FromRgb(0x3A, 0x3A, 0x3C));
         }
         else
         {
@@ -67,6 +69,8 @@ public static class ThemeManager
             Set(res, "SurfaceBrush",      Color.FromRgb(0xFA, 0xFA, 0xFA));
             Set(res, "BannerBgBrush",     Color.FromRgb(0xE8, 0xF2, 0xFB));
             Set(res, "BannerBorderBrush", Color.FromRgb(0xB3, 0xD6, 0xF5));
+            Set(res, "HoverBrush",        Color.FromRgb(0xEB, 0xEB, 0xEB));
+            Set(res, "BadgeBrush",        Color.FromRgb(0xF0, 0xF0, 0xF0));
         }
     }
 
