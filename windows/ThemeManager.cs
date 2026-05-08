@@ -2,6 +2,7 @@ using Microsoft.Win32;
 using System;
 using System.Windows;
 using System.Windows.Media;
+using System.Windows.Threading;
 
 namespace ClaudeCheckerWindows;
 
@@ -14,20 +15,17 @@ public static class ThemeManager
     {
         IsDark = ReadIsDark();
         Apply();
-        SystemEvents.UserPreferenceChanged += OnPreferenceChanged;
-    }
 
-    private static void OnPreferenceChanged(object sender, UserPreferenceChangedEventArgs e)
-    {
-        if (e.Category != UserPreferenceCategory.General) return;
-        var nowDark = ReadIsDark();
-        if (nowDark == IsDark) return;
-        IsDark = nowDark;
-        Application.Current.Dispatcher.Invoke(() =>
+        var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
+        timer.Tick += (_, _) =>
         {
+            var nowDark = ReadIsDark();
+            if (nowDark == IsDark) return;
+            IsDark = nowDark;
             Apply();
             ThemeChanged?.Invoke();
-        });
+        };
+        timer.Start();
     }
 
     private static bool ReadIsDark()
