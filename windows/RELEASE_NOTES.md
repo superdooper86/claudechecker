@@ -1,7 +1,6 @@
-## What's new in beta.23
+## What's new in beta.24
 
-- About section now shows "vX.X.X available" label when an update is available (not just button label change)
-- Sign-in: fixed app showing signed out after login window closes — cookies and cached auth now correctly set IsSignedIn=true
-- Sign-in: added brief delay before refresh so WebView2 user data folder is fully released by LoginWindow before reuse
-- Wider cookie domain filter (anthropic.com included alongside claude.ai)
-- Broader JS paths for email and org ID in bootstrap response
+- Sign-in now shows email and data immediately after login (loads from cache set during login flow)
+- Background refresh runs 3 seconds after login — avoids WebView2 user data folder lock race
+- Added /api/organizations and personal /api/usage fallbacks when bootstrap has no org ID
+- Broader JS paths for email and org ID
