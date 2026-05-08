@@ -268,14 +268,53 @@ public class UsageViewModel : INotifyPropertyChanged
                 catch { /* best-effort */ }
             }
 
+            // If HttpClient couldn't reach overage/prepaid endpoints (expired cf_clearance),
+            // fall back to the persistent background WebView2 which always has live cookies.
+            var overageResult = ot.Result;
+            var prepaidResult = pt.Result;
+            if ((overageResult == null || prepaidResult == null) && orgId != null)
+            {
+                try
+                {
+                    var browser = App.BackgroundBrowser;
+                    if (browser != null)
+                    {
+                        var wvScript = $@"(async()=>{{try{{
+                            const h={{headers:{{accept:'application/json'}}}};
+                            const [ov,pp]=await Promise.all([
+                                fetch('/api/organizations/{orgId}/overage_spend_limit',h).then(r=>r.ok?r.json():null).catch(()=>null),
+                                fetch('/api/organizations/{orgId}/prepaid/credits',h).then(r=>r.ok?r.json():null).catch(()=>null)
+                            ]);
+                            window.chrome.webview.postMessage({{overage:ov,prepaid:pp}});
+                        }}catch(ex){{window.chrome.webview.postMessage(null);}}}})()";
+
+                        var wvJson = await Application.Current.Dispatcher.InvokeAsync(
+                            () => browser.RunScriptAsync(wvScript)).Task.Unwrap();
+
+                        if (!string.IsNullOrEmpty(wvJson) && wvJson != "null")
+                        {
+                            using var wvDoc = JsonDocument.Parse(wvJson);
+                            var wvRoot = wvDoc.RootElement;
+                            if (overageResult == null && wvRoot.TryGetProperty("overage", out var ovEl)
+                                && ovEl.ValueKind == JsonValueKind.Object)
+                                overageResult = JsonSerializer.Deserialize<OverageSpendLimit>(ovEl.GetRawText(), JsonOpts);
+                            if (prepaidResult == null && wvRoot.TryGetProperty("prepaid", out var ppEl)
+                                && ppEl.ValueKind == JsonValueKind.Object)
+                                prepaidResult = JsonSerializer.Deserialize<PrepaidCredits>(ppEl.GetRawText(), JsonOpts);
+                        }
+                    }
+                }
+                catch { /* best-effort — never block the refresh */ }
+            }
+
             // Persist fresh usage so cache reflects live data
             AppSettings.Default.UsageJson = usageJson;
-            if (!string.IsNullOrEmpty(planLabel)) AppSettings.Default.PlanLabel = planLabel;
-            if (ot.Result != null) AppSettings.Default.OverageJson = JsonSerializer.Serialize(ot.Result);
-            if (pt.Result != null) AppSettings.Default.PrepaidJson = JsonSerializer.Serialize(pt.Result);
+            if (!string.IsNullOrEmpty(planLabel))  AppSettings.Default.PlanLabel   = planLabel;
+            if (overageResult != null) AppSettings.Default.OverageJson = JsonSerializer.Serialize(overageResult);
+            if (prepaidResult != null) AppSettings.Default.PrepaidJson = JsonSerializer.Serialize(prepaidResult);
             AppSettings.Default.Save();
 
-            return (BuildLimits(usage), ot.Result, pt.Result, usage?.ExtraUsage, email, orgId, planLabel, true);
+            return (BuildLimits(usage), overageResult, prepaidResult, usage?.ExtraUsage, email, orgId, planLabel, true);
         }
         catch { throw; }
     }
