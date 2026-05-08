@@ -69,11 +69,31 @@ jobs:
           open('README.md', 'w').writelines(out)
           "
 
-      - name: Commit version-beta.json and README
+      - name: Commit version-beta.json and README via API
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add version-beta.json README.md
-          git commit -m "Beta release ${{ github.ref_name }}"
-          git pull --rebase origin main
-          git push origin HEAD:main
+          python3 - <<'PYEOF'
+          import base64, subprocess, os
+
+          repo = os.environ['GITHUB_REPOSITORY']
+          ref_name = os.environ['GITHUB_REF_NAME']
+          msg = f'Beta release {ref_name}'
+
+          def api_put(path):
+              sha = subprocess.check_output(
+                  ['gh', 'api', f'repos/{repo}/contents/{path}', '--jq', '.sha'],
+                  text=True
+              ).strip()
+              content = base64.b64encode(open(path, 'rb').read()).decode()
+              subprocess.run([
+                  'gh', 'api', '--method', 'PUT',
+                  f'repos/{repo}/contents/{path}',
+                  '-f', f'message={msg}',
+                  '-f', f'content={content}',
+                  '-f', f'sha={sha}',
+              ], check=True)
+
+          api_put('version-beta.json')
+          api_put('README.md')
+          PYEOF
