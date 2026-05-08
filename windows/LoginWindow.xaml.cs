@@ -100,8 +100,12 @@ public partial class LoginWindow : Window
                     window.chrome.webview.postMessage({email:e,orgId:null,planLabel,usage:(pu&&!pu.error?pu:null),debug:'no-org'});
                     return;
                 }
-                const u=await(await fetch('/api/organizations/'+id+'/usage',h)).json();
-                window.chrome.webview.postMessage({email:e,orgId:id,planLabel,usage:u,debug:'src:'+orgSrc+'|plan:'+(planLabel||'none')});
+                const [u,ov,pp]=await Promise.all([
+                    fetch('/api/organizations/'+id+'/usage',h).then(r=>r.json()).catch(()=>null),
+                    fetch('/api/organizations/'+id+'/overage_spend_limit',h).then(r=>r.ok?r.json():null).catch(()=>null),
+                    fetch('/api/organizations/'+id+'/prepaid/credits',h).then(r=>r.ok?r.json():null).catch(()=>null)
+                ]);
+                window.chrome.webview.postMessage({email:e,orgId:id,planLabel,usage:u,overage:ov,prepaid:pp,debug:'src:'+orgSrc+'|plan:'+(planLabel||'none')});
             }catch(ex){window.chrome.webview.postMessage({error:String(ex)});}})()";
 
             await Browser.CoreWebView2.ExecuteScriptAsync(script);
@@ -127,6 +131,12 @@ public partial class LoginWindow : Window
                 if (root.TryGetProperty("planLabel", out var pl) && pl.ValueKind == JsonValueKind.String
                     && !string.IsNullOrEmpty(pl.GetString()))
                     AppSettings.Default.PlanLabel = pl.GetString()!;
+
+                if (root.TryGetProperty("overage", out var ov) && ov.ValueKind == JsonValueKind.Object)
+                    AppSettings.Default.OverageJson = ov.GetRawText();
+
+                if (root.TryGetProperty("prepaid", out var pp) && pp.ValueKind == JsonValueKind.Object)
+                    AppSettings.Default.PrepaidJson = pp.GetRawText();
 
                 if (root.TryGetProperty("debug", out var dbg) && dbg.ValueKind == JsonValueKind.String)
                     AppSettings.Default.DebugInfo = dbg.GetString() ?? "";
