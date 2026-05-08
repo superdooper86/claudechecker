@@ -141,8 +141,10 @@ class UsageViewModel: ObservableObject {
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return (nil, nil) }
 
         func planFromOrg(_ org: [String: Any]?) -> String? {
-            guard let pt = org?["plan_type"] as? String, !pt.isEmpty else { return nil }
-            return pt.prefix(1).uppercased() + pt.dropFirst().lowercased()
+            guard let caps = org?["capabilities"] as? [String] else { return nil }
+            guard let cap = caps.first(where: { $0.hasPrefix("claude_") }) else { return nil }
+            let name = String(cap.dropFirst("claude_".count))
+            return name.prefix(1).uppercased() + name.dropFirst().lowercased()
         }
 
         // account.memberships[0].organization.uuid
