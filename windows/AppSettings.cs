@@ -9,6 +9,8 @@ public class AppSettings
     public string CookieStore     { get; set; } = "";
     public string BurnHistory     { get; set; } = "";
     public string OrgId           { get; set; } = "";
+    public string Email           { get; set; } = "";
+    public string UsageJson       { get; set; } = "";
     public int    RefreshInterval { get; set; } = 120;
     public bool   ShowInTaskbar   { get; set; } = true;
     public bool   BetaChannel     { get; set; } = false;
