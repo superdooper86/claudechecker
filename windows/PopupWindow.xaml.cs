@@ -30,7 +30,7 @@ public partial class PopupWindow : Window
         UpdateBannerState();
         UpdateFooter();
 
-        Deactivated += (_, _) => { if (!_dialogOpen) Hide(); };
+        Closing += (_, e) => { e.Cancel = true; Hide(); };
     }
 
     // ── Card rendering ───────────────────────────────────────────────
@@ -44,8 +44,10 @@ public partial class PopupWindow : Window
 
     private static UIElement BuildCard(AgentLimit limit)
     {
-        var accent     = new SolidColorBrush(Color.FromRgb(0xF9, 0x73, 0x16));
-        var secondary  = (SolidColorBrush)Application.Current.Resources["SecondaryBrush"];
+        var accent    = new SolidColorBrush(Color.FromRgb(0xF9, 0x73, 0x16));
+        var text      = (SolidColorBrush)Application.Current.Resources["TextBrush"];
+        var secondary = (SolidColorBrush)Application.Current.Resources["SecondaryBrush"];
+        var border    = (SolidColorBrush)Application.Current.Resources["BorderBrush"];
 
         // Gauge
         var gauge = new GaugeControl { Width = 76, Height = 76, Percent = limit.UsedPercent, Accent = accent };
@@ -53,26 +55,25 @@ public partial class PopupWindow : Window
         // Live badge
         var liveBadge = new Border
         {
-            Background   = new SolidColorBrush(Color.FromArgb(26, 0, 200, 0)),
+            Background   = new SolidColorBrush(Color.FromArgb(30, 0, 160, 0)),
             CornerRadius = new CornerRadius(4),
             Padding      = new Thickness(6, 2, 6, 2),
             Margin       = new Thickness(0, 0, 6, 0),
             Visibility   = limit.IsLive ? Visibility.Visible : Visibility.Collapsed,
             Child        = new TextBlock { Text = "Live", FontSize = 10, FontWeight = FontWeights.Medium,
-                               Foreground = new SolidColorBrush(Colors.LightGreen) }
+                               Foreground = new SolidColorBrush(Color.FromRgb(0, 120, 0)) }
         };
 
         // Usage badge
         var usageBadge = new Border
         {
-            Background   = new SolidColorBrush(Color.FromArgb(15, 255, 255, 255)),
+            Background   = new SolidColorBrush(Color.FromArgb(18, 0, 0, 0)),
             CornerRadius = new CornerRadius(4),
             Padding      = new Thickness(6, 2, 6, 2),
             Child        = new TextBlock { Text = $"Usg: {limit.UsageLabel}", FontSize = 10,
                                FontWeight = FontWeights.Medium, Foreground = secondary }
         };
 
-        // Header row: Claude · Pro | [Live] [Usg]
         var badgeStack = new StackPanel { Orientation = Orientation.Horizontal };
         badgeStack.Children.Add(liveBadge);
         badgeStack.Children.Add(usageBadge);
@@ -80,7 +81,7 @@ public partial class PopupWindow : Window
         var nameStack = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
         nameStack.Children.Add(new TextBlock { Text = "✦", FontSize = 11, Foreground = accent, VerticalAlignment = VerticalAlignment.Center });
         nameStack.Children.Add(new TextBlock { Text = "Claude", FontSize = 13, FontWeight = FontWeights.SemiBold,
-            Foreground = Brushes.White, Margin = new Thickness(6, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center });
+            Foreground = text, Margin = new Thickness(6, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center });
         nameStack.Children.Add(new TextBlock { Text = $"·  {VM.PlanLabel}", FontSize = 11,
             Foreground = secondary, Margin = new Thickness(6, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center });
 
@@ -92,21 +93,19 @@ public partial class PopupWindow : Window
         headerRow.Children.Add(nameStack);
         headerRow.Children.Add(badgeStack);
 
-        // Progress bar
         var progress = new ProgressBar
         {
             Value = limit.UsedPercent, Maximum = 100, Height = 4,
             Margin = new Thickness(0, 4, 0, 4),
             Foreground = accent,
-            Background = new SolidColorBrush(Color.FromArgb(18, 255, 255, 255)),
+            Background = new SolidColorBrush(Color.FromArgb(20, 0, 0, 0)),
             BorderThickness = new Thickness(0),
         };
 
-        // Time row
         var timeStack = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
         timeStack.Children.Add(new TextBlock { Text = "⏱ ", FontSize = 10, Foreground = secondary, VerticalAlignment = VerticalAlignment.Center });
         timeStack.Children.Add(new TextBlock { Text = limit.TimeRemaining, FontSize = 12,
-            FontWeight = FontWeights.Medium, Foreground = Brushes.White, VerticalAlignment = VerticalAlignment.Center });
+            FontWeight = FontWeights.Medium, Foreground = text, VerticalAlignment = VerticalAlignment.Center });
 
         var resetText = new TextBlock
         {
@@ -117,26 +116,23 @@ public partial class PopupWindow : Window
         var timeRow = new Grid();
         timeRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         timeRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        Grid.SetColumn(timeStack,  0);
-        Grid.SetColumn(resetText,  1);
+        Grid.SetColumn(timeStack, 0);
+        Grid.SetColumn(resetText, 1);
         timeRow.Children.Add(timeStack);
         timeRow.Children.Add(resetText);
 
-        // Sparkline
         var sparkline = new SparklineControl
         {
             Height = 28, Margin = new Thickness(0, 8, 0, 0), LineColor = Color.FromRgb(0xF9, 0x73, 0x16),
             Data = limit.BurnHistory.Count > 0 ? limit.BurnHistory : null,
         };
 
-        // Info panel
         var infoPanel = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
         infoPanel.Children.Add(headerRow);
         infoPanel.Children.Add(progress);
         infoPanel.Children.Add(timeRow);
         infoPanel.Children.Add(sparkline);
 
-        // Card content grid
         var cardGrid = new Grid { Margin = new Thickness(16, 12, 16, 12) };
         cardGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         cardGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(16, GridUnitType.Pixel) });
@@ -149,10 +145,10 @@ public partial class PopupWindow : Window
         var card = new Border
         {
             Background      = (SolidColorBrush)Application.Current.Resources["CardBrush"],
-            CornerRadius    = new CornerRadius(8),
-            BorderBrush     = new SolidColorBrush(Color.FromArgb(20, 255, 255, 255)),
-            BorderThickness = new Thickness(0.5),
-            Margin          = new Thickness(8, 0, 8, 0),
+            CornerRadius    = new CornerRadius(6),
+            BorderBrush     = border,
+            BorderThickness = new Thickness(1),
+            Margin          = new Thickness(12, 0, 12, 0),
             Child           = cardGrid,
         };
 
@@ -160,7 +156,7 @@ public partial class PopupWindow : Window
         {
             Text   = limit.WindowLabel,
             Style  = (Style)Application.Current.Resources["HeaderText"],
-            Margin = new Thickness(16, 10, 16, 4),
+            Margin = new Thickness(16, 12, 16, 6),
         };
 
         var section = new StackPanel();
@@ -200,8 +196,7 @@ public partial class PopupWindow : Window
     private void UpdateBannerState()
     {
         var visible = Updater.UpdateAvailable;
-        UpdateBanner.Visibility    = visible ? Visibility.Visible : Visibility.Collapsed;
-        UpdateBannerDiv.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+        UpdateBanner.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
         if (visible) UpdateBannerTitle.Text = $"Update available — v{Updater.LatestVersion}";
     }
 
@@ -275,8 +270,6 @@ public partial class PopupWindow : Window
         SettingsPanel.Visibility = Visibility.Collapsed;
         UpdatePanel.Visibility   = Visibility.Collapsed;
     }
-
-    private void Close_Click(object s, RoutedEventArgs e) => Hide();
 
     private async void Refresh_Click(object s, RoutedEventArgs e) => await VM.RefreshAsync();
 
