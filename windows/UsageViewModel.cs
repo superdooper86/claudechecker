@@ -395,20 +395,21 @@ public class UsageViewModel : INotifyPropertyChanged
             }
 
             string? planLabel = null;
-            if (!string.IsNullOrEmpty(orgId))
+            if (root.TryGetProperty("account", out var acctPlan) &&
+                acctPlan.TryGetProperty("memberships", out var plMems) && plMems.GetArrayLength() > 0 &&
+                plMems[0].TryGetProperty("organization", out var plOrg) &&
+                plOrg.TryGetProperty("capabilities", out var caps) &&
+                caps.ValueKind == System.Text.Json.JsonValueKind.Array)
             {
-                // Try account.memberships[0].organization.plan_type
-                if (root.TryGetProperty("account", out var acctPlan) &&
-                    acctPlan.TryGetProperty("memberships", out var plMems) && plMems.GetArrayLength() > 0)
+                foreach (var cap in caps.EnumerateArray())
                 {
-                    var firstMem = plMems[0];
-                    if (firstMem.TryGetProperty("organization", out var plOrg) &&
-                        plOrg.TryGetProperty("plan_type", out var pt) &&
-                        pt.ValueKind == System.Text.Json.JsonValueKind.String)
+                    var s = cap.GetString() ?? "";
+                    if (s.StartsWith("claude_", StringComparison.OrdinalIgnoreCase))
                     {
-                        var raw = pt.GetString() ?? "";
-                        if (raw.Length > 0)
-                            planLabel = char.ToUpper(raw[0]) + raw.Substring(1).ToLower();
+                        var name = s.Substring("claude_".Length);
+                        if (name.Length > 0)
+                            planLabel = char.ToUpper(name[0]) + name.Substring(1).ToLower();
+                        break;
                     }
                 }
             }
