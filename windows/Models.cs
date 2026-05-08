@@ -21,8 +21,8 @@ public class AgentLimit
 
 public class UsageResponse
 {
-    [JsonPropertyName("claude_ai_default_5h")] public WindowData? FiveHour { get; set; }
-    [JsonPropertyName("claude_ai_default")]    public WindowData? SevenDay  { get; set; }
+    [JsonPropertyName("five_hour")] public WindowData? FiveHour { get; set; }
+    [JsonPropertyName("seven_day")] public WindowData? SevenDay  { get; set; }
 }
 
 public class WindowData
