@@ -24,6 +24,7 @@ public class UsageViewModel : INotifyPropertyChanged
     private DateTime? _lastUpdated;
     private OverageSpendLimit? _overage;
     private PrepaidCredits? _prepaid;
+    private ExtraUsage? _extraUsage;
 
     private readonly Dictionary<string, List<double>> _burnHistory = [];
     private const int MaxHistorySamples = 24;
@@ -37,6 +38,7 @@ public class UsageViewModel : INotifyPropertyChanged
     public DateTime? LastUpdated            { get => _lastUpdated;  set => Set(ref _lastUpdated, value); }
     public OverageSpendLimit? Overage       { get => _overage;      set => Set(ref _overage, value); }
     public PrepaidCredits? Prepaid          { get => _prepaid;      set => Set(ref _prepaid, value); }
+    public ExtraUsage? ExtraUsage           { get => _extraUsage;   set => Set(ref _extraUsage, value); }
 
     private int _refreshInterval = 120;
     public int RefreshInterval
@@ -98,9 +100,9 @@ public class UsageViewModel : INotifyPropertyChanged
             // HttpClient refresh — WebView2 is NOT used here to avoid spawning a heavy
             // browser process every refresh cycle (causes memory accumulation).
             // SaveAndClose at login time is responsible for fetching live data via WebView2.
-            var (limits, overage, prepaid, email, orgId, ok) = hasCookies
+            var (limits, overage, prepaid, extraUsage, email, orgId, ok) = hasCookies
                 ? await TryHttpRefreshAsync(cookies)
-                : ([], null, null, null, null, false);
+                : ([], null, null, null, null, null, false);
 
             // Fill in any blanks from cached values saved at login time
             if (string.IsNullOrEmpty(email))  email  = AppSettings.Default.Email;
@@ -129,7 +131,7 @@ public class UsageViewModel : INotifyPropertyChanged
 
             await Application.Current.Dispatcher.InvokeAsync(() =>
             {
-                if (limits.Count > 0) { Limits = limits; Overage = overage; Prepaid = prepaid; }
+                if (limits.Count > 0) { Limits = limits; Overage = overage; Prepaid = prepaid; ExtraUsage = extraUsage; }
                 if (!string.IsNullOrEmpty(email)) UserEmail = email;
                 IsSignedIn   = true;
                 ErrorMessage = null;
@@ -147,7 +149,7 @@ public class UsageViewModel : INotifyPropertyChanged
         }
     }
 
-    private async Task<(List<AgentLimit>, OverageSpendLimit?, PrepaidCredits?, string?, string?, bool)>
+    private async Task<(List<AgentLimit>, OverageSpendLimit?, PrepaidCredits?, ExtraUsage?, string?, string?, bool)>
         TryHttpRefreshAsync(List<(string Name, string Value, string Domain, string Path)> cookies)
     {
         try
@@ -165,7 +167,7 @@ public class UsageViewModel : INotifyPropertyChanged
                 orgId = AppSettings.Default.OrgId;
 
             if (string.IsNullOrEmpty(orgId))
-                return ([], null, null, email, orgId, true);
+                return ([], null, null, null, email, orgId, true);
 
             AppSettings.Default.OrgId = orgId;
             AppSettings.Default.Save();
@@ -175,9 +177,9 @@ public class UsageViewModel : INotifyPropertyChanged
             var pt = FetchAsync<PrepaidCredits>(http, $"https://claude.ai/api/organizations/{orgId}/prepaid/credits");
             await Task.WhenAll(ut, ot, pt);
 
-            return (BuildLimits(ut.Result), ot.Result, pt.Result, email, orgId, true);
+            return (BuildLimits(ut.Result), ot.Result, pt.Result, ut.Result?.ExtraUsage, email, orgId, true);
         }
-        catch { return ([], null, null, null, null, false); }
+        catch { return ([], null, null, null, null, null, false); }
     }
 
     private static async Task<(List<AgentLimit>, string?, string?)> TryWebView2RefreshAsync()
