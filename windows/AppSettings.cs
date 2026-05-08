@@ -14,6 +14,7 @@ public class AppSettings
     public int    RefreshInterval { get; set; } = 120;
     public bool   ShowInTaskbar   { get; set; } = true;
     public bool   BetaChannel     { get; set; } = false;
+    public string DebugInfo       { get; set; } = "";
 
     private static readonly string FilePath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
