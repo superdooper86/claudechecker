@@ -131,12 +131,8 @@ public class UsageViewModel : INotifyPropertyChanged
 
             await Application.Current.Dispatcher.InvokeAsync(() =>
             {
-                Limits       = limits;
-                Overage      = overage;
-                Prepaid      = prepaid;
+                if (limits.Count > 0) { Limits = limits; Overage = overage; Prepaid = prepaid; }
                 if (!string.IsNullOrEmpty(email)) UserEmail = email;
-                // Trust that cookies / cached auth mean the user IS signed in,
-                // even if the live fetch failed this cycle.
                 IsSignedIn   = true;
                 ErrorMessage = null;
                 LastUpdated  = DateTime.Now;
