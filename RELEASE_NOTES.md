@@ -1,4 +1,4 @@
-## What's new in v1.1.4-beta.5
+## What's new in v1.1.4-beta.6
 
-### Improvements
-- Bootstrap API call consolidated — org ID, email, and plan name now fetched in a single request per refresh
+### UI improvement
+- Session Diary card: removed the Claude icon and header row; now shows sample count and avg burn rate left/right with the sparkline below — matching the cleaner Windows layout
