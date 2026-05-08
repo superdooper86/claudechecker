@@ -247,18 +247,23 @@ public partial class PopupWindow : Window
         var prepaid  = VM.Prepaid;
         var currency = VM.ExtraUsage?.Currency ?? overage?.Currency ?? "$";
 
-        // Fall back to extra_usage fields when the overage/prepaid endpoints return nothing
-        var spent   = overage?.UsedCredits        ?? VM.ExtraUsage?.UsedCredits  ?? 0;
+        // Fall back to extra_usage fields when the overage/prepaid endpoints return nothing.
+        // extra_usage.used_credits is in cents (e.g. 5231 = EUR 52.31); overage endpoint
+        // already returns the value in currency units, so only divide for the fallback path.
+        var spent   = overage?.UsedCredits        ?? (VM.ExtraUsage?.UsedCredits  / 100.0) ?? 0;
         var limit   = overage?.MonthlyCreditLimit ?? VM.ExtraUsage?.MonthlyLimit ?? 0;
         var balance = prepaid?.Amount             ?? 0;
+        // Show "Unlimited" when no limit is configured (null monthly_limit)
+        bool unlimited = overage?.MonthlyCreditLimit == null && VM.ExtraUsage?.MonthlyLimit == null;
 
-        UIElement MakeRow(string label, string value)
+        UIElement MakeRow(string label, string value, bool highlight = false)
         {
             var row = new Grid { Margin = new Thickness(0, 3, 0, 3) };
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             var lbl = new TextBlock { Text = label, FontSize = 12, Foreground = secondary };
-            var val = new TextBlock { Text = value, FontSize = 12, FontWeight = FontWeights.Medium, Foreground = text };
+            var val = new TextBlock { Text = value, FontSize = 12, FontWeight = FontWeights.Medium,
+                                      Foreground = highlight ? new SolidColorBrush(Color.FromRgb(0x4C, 0xAF, 0x50)) : text };
             Grid.SetColumn(lbl, 0);
             Grid.SetColumn(val, 1);
             row.Children.Add(lbl);
@@ -267,9 +272,10 @@ public partial class PopupWindow : Window
         }
 
         var contentPanel = new StackPanel { Margin = new Thickness(12, 10, 12, 10) };
-        contentPanel.Children.Add(MakeRow("Spent",   $"{currency}{spent:F2}"));
-        if (limit   > 0) contentPanel.Children.Add(MakeRow("Limit",   $"{currency}{limit:F2}"));
-        if (balance > 0) contentPanel.Children.Add(MakeRow("Balance", $"{currency}{balance:F2}"));
+        contentPanel.Children.Add(MakeRow("Spent",   $"{currency} {spent:F2}", spent > 0));
+        if (unlimited)    contentPanel.Children.Add(MakeRow("Limit",   "Unlimited"));
+        else if (limit > 0) contentPanel.Children.Add(MakeRow("Limit", $"{currency} {limit:F2}"));
+        if (balance > 0)  contentPanel.Children.Add(MakeRow("Balance", $"{currency} {balance:F2}"));
 
         if (limit > 0)
         {
