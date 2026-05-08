@@ -178,7 +178,12 @@ public class UsageViewModel : INotifyPropertyChanged
             if (!bootstrapResp.IsSuccessStatusCode)
                 throw new Exception($"Bootstrap failed ({(int)bootstrapResp.StatusCode}).");
 
-            var (email, orgId, planLabel) = ParseBootstrap(await bootstrapResp.Content.ReadAsStringAsync());
+            var bootstrapJson = await bootstrapResp.Content.ReadAsStringAsync();
+            // Save raw bootstrap for diagnostics — lets us see if 'capabilities' is returned
+            AppSettings.Default.DebugInfo = bootstrapJson.Length > 2000
+                ? bootstrapJson.Substring(0, 2000) : bootstrapJson;
+            AppSettings.Default.Save();
+            var (email, orgId, planLabel) = ParseBootstrap(bootstrapJson);
 
             if (string.IsNullOrEmpty(orgId))
                 orgId = await FetchOrgIdFromListAsync(http);
