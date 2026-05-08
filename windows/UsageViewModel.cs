@@ -191,12 +191,21 @@ public class UsageViewModel : INotifyPropertyChanged
         try
         {
             const string script = @"(async()=>{try{
-                const b=await(await fetch('/api/bootstrap',{headers:{accept:'application/json'}})).json();
-                const id=b?.memberships?.[0]?.organization?.uuid||b?.organizations?.[0]?.uuid
-                         ||b?.default_organization?.uuid||null;
+                const h={headers:{accept:'application/json'}};
+                const b=await(await fetch('/api/bootstrap',h)).json();
+                let id=b?.memberships?.[0]?.organization?.uuid||b?.organizations?.[0]?.uuid
+                        ||b?.default_organization?.uuid||null;
                 const em=b?.account?.email_address||b?.account?.email||b?.email||null;
-                if(!id)return{email:em,orgId:null,usage:null};
-                const u=await(await fetch('/api/organizations/'+id+'/usage',{headers:{accept:'application/json'}})).json();
+                if(!id){
+                    try{const ol=await(await fetch('/api/organizations',h)).json();
+                        if(Array.isArray(ol)&&ol.length>0)id=ol[0]?.uuid||null;}catch(e2){}
+                }
+                if(!id){
+                    try{const pu=await(await fetch('/api/usage',h)).json();
+                        if(pu&&!pu.error)return{email:em,orgId:null,usage:pu};}catch(e3){}
+                    return{email:em,orgId:null,usage:null};
+                }
+                const u=await(await fetch('/api/organizations/'+id+'/usage',h)).json();
                 return{email:em,orgId:id,usage:u};
             }catch(ex){return null;}})()";
 
@@ -235,6 +244,38 @@ public class UsageViewModel : INotifyPropertyChanged
             return (limits, email, orgId);
         }
         catch { return ([], null, null); }
+    }
+
+    public async Task LoadFromCacheAsync()
+    {
+        var email  = AppSettings.Default.Email;
+        var orgId  = AppSettings.Default.OrgId;
+        var cookie = AppSettings.Default.CookieStore;
+
+        bool isAuth = !string.IsNullOrEmpty(email) || !string.IsNullOrEmpty(orgId)
+                   || !string.IsNullOrEmpty(cookie);
+        if (!isAuth) return;
+
+        List<AgentLimit> limits = [];
+        if (!string.IsNullOrEmpty(AppSettings.Default.UsageJson))
+        {
+            try
+            {
+                var cached = JsonSerializer.Deserialize<UsageResponse>(
+                    AppSettings.Default.UsageJson, JsonOpts);
+                limits = BuildLimits(cached);
+            }
+            catch { }
+        }
+
+        await Application.Current.Dispatcher.InvokeAsync(() =>
+        {
+            if (!string.IsNullOrEmpty(email)) UserEmail = email;
+            if (limits.Count > 0)             Limits    = limits;
+            IsSignedIn   = true;
+            ErrorMessage = limits.Count == 0 ? "Signed in — refreshing data…" : null;
+            LastUpdated  = limits.Count > 0 ? DateTime.Now : LastUpdated;
+        });
     }
 
     public async Task SignOutAsync()
