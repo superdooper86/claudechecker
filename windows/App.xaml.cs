@@ -17,6 +17,19 @@ public partial class App : Application
 
     protected override void OnStartup(StartupEventArgs e)
     {
+        var logPath = System.IO.Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "ClaudeChecker", "startup_crash.txt");
+
+        AppDomain.CurrentDomain.UnhandledException += (_, ex) =>
+            System.IO.File.WriteAllText(logPath, ex.ExceptionObject?.ToString() ?? "unknown");
+
+        DispatcherUnhandledException += (_, ex) =>
+        {
+            System.IO.File.WriteAllText(logPath, ex.Exception?.ToString() ?? "unknown");
+            ex.Handled = false;
+        };
+
         base.OnStartup(e);
         ThemeManager.Initialize();
         SetupTray();
