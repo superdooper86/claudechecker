@@ -189,7 +189,8 @@ public class UsageViewModel : INotifyPropertyChanged
             const string script = @"(async()=>{try{
                 const h={headers:{accept:'application/json'}};
                 const b=await(await fetch('/api/bootstrap',h)).json();
-                let id=b?.memberships?.[0]?.organization?.uuid||b?.organizations?.[0]?.uuid
+                let id=b?.account?.memberships?.[0]?.organization?.uuid
+                        ||b?.memberships?.[0]?.organization?.uuid||b?.organizations?.[0]?.uuid
                         ||b?.default_organization?.uuid||null;
                 const em=b?.account?.email_address||b?.account?.email||b?.email||null;
                 if(!id){
@@ -355,8 +356,9 @@ public class UsageViewModel : INotifyPropertyChanged
                 acct.TryGetProperty("email_address", out var em))
                 email = em.GetString();
 
-            // Path 1: memberships[0].organization.uuid
-            if (root.TryGetProperty("memberships", out var mems) && mems.GetArrayLength() > 0)
+            // Path 1: account.memberships[0].organization.uuid  (Claude.ai personal/pro accounts)
+            if (root.TryGetProperty("account", out var acctNode) &&
+                acctNode.TryGetProperty("memberships", out var mems) && mems.GetArrayLength() > 0)
             {
                 var first = mems[0];
                 if (first.TryGetProperty("organization", out var org) &&
@@ -364,7 +366,17 @@ public class UsageViewModel : INotifyPropertyChanged
                     orgId = uuid.GetString();
             }
 
-            // Path 2: organizations[0].uuid (flat list on root)
+            // Path 2: memberships[0].organization.uuid  (root-level, older API shape)
+            if (string.IsNullOrEmpty(orgId) &&
+                root.TryGetProperty("memberships", out var rootMems) && rootMems.GetArrayLength() > 0)
+            {
+                var first = rootMems[0];
+                if (first.TryGetProperty("organization", out var org) &&
+                    org.TryGetProperty("uuid", out var uuid))
+                    orgId = uuid.GetString();
+            }
+
+            // Path 3: organizations[0].uuid  (flat list on root)
             if (string.IsNullOrEmpty(orgId) &&
                 root.TryGetProperty("organizations", out var orgs) && orgs.GetArrayLength() > 0)
             {
