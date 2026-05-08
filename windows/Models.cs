@@ -34,8 +34,10 @@ public class WindowData
 
 public class ExtraUsage
 {
-    [JsonPropertyName("is_enabled")] public bool    IsEnabled { get; set; }
-    [JsonPropertyName("currency")]   public string? Currency  { get; set; }
+    [JsonPropertyName("is_enabled")]    public bool    IsEnabled    { get; set; }
+    [JsonPropertyName("currency")]      public string? Currency     { get; set; }
+    [JsonPropertyName("used_credits")]  public double? UsedCredits  { get; set; }
+    [JsonPropertyName("monthly_limit")] public double? MonthlyLimit { get; set; }
 }
 
 public class BootstrapResponse
