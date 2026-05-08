@@ -398,12 +398,11 @@ struct DiaryRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
             HStack {
-                AgentIconView(agent: .claude, size: 12)
-                Text("Claude")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(color)
+                Text("\(totalSaved) samples")
+                    .font(.system(size: 10.5))
+                    .foregroundColor(.secondary)
                 Spacer()
-                Text("\(totalSaved) samples · Avg Burn Rate: +\(String(format: "%.1f", burnRate))%/h")
+                Text("Avg burn rate: \(String(format: "%.1f", burnRate))%/h")
                     .font(.system(size: 10.5))
                     .foregroundColor(.secondary)
             }
