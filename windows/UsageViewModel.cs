@@ -203,11 +203,11 @@ public class UsageViewModel : INotifyPropertyChanged
                 if(!id){
                     let pu=null;
                     try{pu=await(await fetch('/api/usage',h)).json();}catch(e3){}
-                    window.chrome.webview.postMessage(JSON.stringify({email:em,orgId:null,usage:(pu&&!pu.error?pu:null)}));
+                    window.chrome.webview.postMessage({email:em,orgId:null,usage:(pu&&!pu.error?pu:null)});
                     return;
                 }
                 const u=await(await fetch('/api/organizations/'+id+'/usage',h)).json();
-                window.chrome.webview.postMessage(JSON.stringify({email:em,orgId:id,usage:u}));
+                window.chrome.webview.postMessage({email:em,orgId:id,usage:u});
             }catch(ex){window.chrome.webview.postMessage(null);}})();";
 
             var resultJson = await Application.Current.Dispatcher.InvokeAsync(async () =>
