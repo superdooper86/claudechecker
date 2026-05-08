@@ -117,17 +117,6 @@ public class UsageViewModel : INotifyPropertyChanged
                 catch (Exception ex)
                 {
                     refreshError = ex.Message;
-                    bool authFailed = ex.Message.Contains("re-authenticate");
-                    if (authFailed)
-                    {
-                        await Application.Current.Dispatcher.InvokeAsync(() =>
-                        {
-                            IsSignedIn   = false;
-                            ErrorMessage = ex.Message;
-                            IsLoading    = false;
-                        });
-                        return;
-                    }
                 }
             }
 
@@ -217,6 +206,9 @@ public class UsageViewModel : INotifyPropertyChanged
 
             // Persist fresh usage so cache reflects live data
             AppSettings.Default.UsageJson = usageJson;
+            if (!string.IsNullOrEmpty(planLabel)) AppSettings.Default.PlanLabel = planLabel;
+            if (ot.Result != null) AppSettings.Default.OverageJson = JsonSerializer.Serialize(ot.Result);
+            if (pt.Result != null) AppSettings.Default.PrepaidJson = JsonSerializer.Serialize(pt.Result);
             AppSettings.Default.Save();
 
             return (BuildLimits(usage), ot.Result, pt.Result, usage?.ExtraUsage, email, orgId, planLabel, true);
@@ -297,22 +289,48 @@ public class UsageViewModel : INotifyPropertyChanged
         if (!isAuth) return;
 
         List<AgentLimit> limits = [];
+        ExtraUsage?     extraUsage = null;
+        OverageSpendLimit? overage = null;
+        PrepaidCredits?    prepaid = null;
+
         if (!string.IsNullOrEmpty(AppSettings.Default.UsageJson))
         {
             try
             {
                 var cached = JsonSerializer.Deserialize<UsageResponse>(
                     AppSettings.Default.UsageJson, JsonOpts);
-                limits = BuildLimits(cached);
+                limits     = BuildLimits(cached);
+                extraUsage = cached?.ExtraUsage;
             }
             catch { }
+        }
+        if (!string.IsNullOrEmpty(AppSettings.Default.OverageJson))
+        {
+            try { overage = JsonSerializer.Deserialize<OverageSpendLimit>(AppSettings.Default.OverageJson, JsonOpts); }
+            catch { }
+        }
+        if (!string.IsNullOrEmpty(AppSettings.Default.PrepaidJson))
+        {
+            try { prepaid = JsonSerializer.Deserialize<PrepaidCredits>(AppSettings.Default.PrepaidJson, JsonOpts); }
+            catch { }
+        }
+
+        // Attach persisted burn history to cached limits
+        foreach (var limit in limits)
+        {
+            var key = limit.Window.ToString();
+            if (_burnHistory.TryGetValue(key, out var hist) && hist.Count > 0)
+                limit.BurnHistory = [.. hist];
         }
 
         await Application.Current.Dispatcher.InvokeAsync(() =>
         {
-            if (!string.IsNullOrEmpty(email)) UserEmail = email;
-            // Always show cards — real data if available, placeholders if not
+            if (!string.IsNullOrEmpty(email))                   UserEmail = email;
+            if (!string.IsNullOrEmpty(AppSettings.Default.PlanLabel)) PlanLabel = AppSettings.Default.PlanLabel;
             Limits       = limits.Count > 0 ? limits : LoadPlaceholderLimits();
+            Overage      = overage;
+            Prepaid      = prepaid;
+            ExtraUsage   = extraUsage;
             IsSignedIn   = true;
             ErrorMessage = null;
             LastUpdated  = limits.Count > 0 ? DateTime.Now : LastUpdated;
