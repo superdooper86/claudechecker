@@ -21,6 +21,11 @@ public class GaugeControl : FrameworkElement
     public double Percent { get => (double)GetValue(PercentProperty); set => SetValue(PercentProperty, value); }
     public Brush  Accent  { get => (Brush)GetValue(AccentProperty);   set => SetValue(AccentProperty, value); }
 
+    public GaugeControl()
+    {
+        ThemeManager.ThemeChanged += InvalidateVisual;
+    }
+
     private const double StartAngleDeg = 135;
     private const double SweepDeg      = 270;
     private const double StrokeWidth   = 6;
@@ -31,8 +36,11 @@ public class GaugeControl : FrameworkElement
         var cy     = RenderSize.Height / 2;
         var radius = Math.Min(cx, cy) - StrokeWidth / 2 - 1;
 
+        var trackColor = ThemeManager.IsDark
+            ? Color.FromArgb(40, 255, 255, 255)
+            : Color.FromArgb(30, 0, 0, 0);
         DrawArc(dc, cx, cy, radius, StartAngleDeg, SweepDeg,
-            new Pen(new SolidColorBrush(Color.FromArgb(30, 0, 0, 0)), StrokeWidth));
+            new Pen(new SolidColorBrush(trackColor), StrokeWidth));
 
         if (Percent > 0)
             DrawArc(dc, cx, cy, radius, StartAngleDeg, SweepDeg * (Percent / 100.0),
@@ -40,18 +48,21 @@ public class GaugeControl : FrameworkElement
 
         var dpi = VisualTreeHelper.GetDpi(this).PixelsPerDip;
 
+        var textColor = ThemeManager.IsDark ? Color.FromRgb(0xF5, 0xF5, 0xF5) : Color.FromRgb(0x1C, 0x1C, 0x1C);
+        var subColor  = Color.FromRgb(0x9E, 0x9E, 0x9E);
+
         var pctText = new FormattedText(
             $"{(int)Math.Round(Percent)}%",
             CultureInfo.CurrentCulture, FlowDirection.LeftToRight,
             new Typeface(new FontFamily("Segoe UI"), FontStyles.Normal, FontWeights.Bold, FontStretches.Normal),
-            14, new SolidColorBrush(Color.FromRgb(0x1C, 0x1C, 0x1C)), dpi);
+            14, new SolidColorBrush(textColor), dpi);
         dc.DrawText(pctText, new Point(cx - pctText.Width / 2, cy - pctText.Height - 1));
 
         var sub = new FormattedText(
             "Updated\nnow",
             CultureInfo.CurrentCulture, FlowDirection.LeftToRight,
             new Typeface("Segoe UI"), 7,
-            new SolidColorBrush(Color.FromRgb(0x9E, 0x9E, 0x9E)), dpi)
+            new SolidColorBrush(subColor), dpi)
         {
             TextAlignment = TextAlignment.Center
         };
