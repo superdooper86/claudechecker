@@ -15,6 +15,9 @@ public class AppSettings
     public bool   ShowInTaskbar   { get; set; } = true;
     public bool   BetaChannel     { get; set; } = false;
     public string DebugInfo       { get; set; } = "";
+    public string PlanLabel       { get; set; } = "";
+    public string OverageJson     { get; set; } = "";
+    public string PrepaidJson     { get; set; } = "";
 
     private static readonly string FilePath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
