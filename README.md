@@ -35,7 +35,7 @@ No API key required. It reads directly from your `claude.ai` session using a bui
   </tr>
   <tr>
     <td align="center"><img src="screenshots/update-banner.png" width="280" alt="Update banner" /><br/><sub>Update available</sub></td>
-    <td align="center"><img src="screenshots/notification.png" width="280" alt="Update notification" /><br/><sub>System notification</sub></td>
+    <td align="center"><img src="screenshots/notification.png" width="280" alt="Update notification" /><br/><sub>Update notification</sub></td>
   </tr>
   <tr>
     <td align="center"><img src="screenshots/notif-limit-80.png" width="280" alt="80% limit warning" /><br/><sub>80% limit warning</sub></td>
@@ -43,7 +43,7 @@ No API key required. It reads directly from your `claude.ai` session using a bui
   </tr>
   <tr>
     <td align="center"><img src="screenshots/notif-reset.png" width="280" alt="Limit reset" /><br/><sub>Limit reset</sub></td>
-    <td></td>
+    <td align="center"><img src="screenshots/release-notes.png" width="280" alt="Release notes" /><br/><sub>Release notes</sub></td>
   </tr>
 </table>
 
