@@ -55,7 +55,11 @@ public class UpdateManager : INotifyPropertyChanged
 
     public string CurrentVersion =>
         System.Reflection.Assembly.GetExecutingAssembly()
-              .GetName().Version?.ToString(3) ?? "1.0.0";
+              .GetCustomAttribute<System.Reflection.AssemblyInformationalVersionAttribute>()
+              ?.InformationalVersion.Split('+')[0]
+              ?? "1.0.0";
+
+    private bool IsPreReleaseBuild => CurrentVersion.Contains('-');
 
     public UpdateManager()
     {
@@ -91,7 +95,8 @@ public class UpdateManager : INotifyPropertyChanged
                 LatestBetaVersion = beta.Version;
                 BetaAvailable     = true;
 
-                if (BetaChannel && IsNewer(beta.Version, LatestVersion))
+                // Show beta update if user opted in, or if they're already running a beta
+                if ((BetaChannel || IsPreReleaseBuild) && IsNewer(beta.Version, LatestVersion))
                 {
                     LatestVersion   = beta.Version;
                     ReleaseNotes    = beta.Notes ?? "";
