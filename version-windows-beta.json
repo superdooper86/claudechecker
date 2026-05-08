@@ -1,5 +1,5 @@
 {
-  "version": "0.0.1-beta.17",
-  "url": "https://github.com/superdooper86/claudechecker/releases/download/win-v0.0.1-beta.17/ClaudeChecker-Windows.zip",
-  "notes": "## What's new\r\n\r\nInitial Windows release."
+  "version": "0.0.1-beta.18",
+  "url": "https://github.com/superdooper86/claudechecker/releases/download/win-v0.0.1-beta.18/ClaudeChecker-Windows.zip",
+  "notes": "## What's new in beta.18\r\n\r\n- Fixed startup crash caused by frozen WPF brushes\r\n- Added system dark/light theme support (auto-detected, updates every 5 seconds)\r\n- Native centered window instead of menubar popup\r\n- Update notifications now work correctly for pre-release builds"
 }
