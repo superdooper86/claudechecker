@@ -27,7 +27,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let config = WKWebViewConfiguration()
         config.websiteDataStore = WKWebsiteDataStore.default()
         cookiePrimerView = WKWebView(frame: .zero, configuration: config)
-        cookiePrimerView?.load(URLRequest(url: URL(string: "https://claude.ai/api/organizations/\(UsageViewModel.orgId)/usage")!))
+        cookiePrimerView?.load(URLRequest(url: URL(string: "https://claude.ai")!))
 
         // Status item
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
