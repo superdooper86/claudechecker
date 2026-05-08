@@ -1,0 +1,42 @@
+<Window x:Class="ClaudeCheckerWindows.LoginWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
+        Title="Sign in to claude.ai"
+        Width="520" Height="680"
+        WindowStartupLocation="CenterOwner"
+        Background="#1C1C1E">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <Border Grid.Row="0" Background="#2C2C2E" Padding="16,12">
+            <StackPanel>
+                <TextBlock Text="Sign in to claude.ai" FontSize="14" FontWeight="SemiBold"
+                           Foreground="White"/>
+                <TextBlock Text="Sign in below. ClaudeChecker will save your session cookies to fetch usage data."
+                           FontSize="11" Foreground="#888888" TextWrapping="Wrap" Margin="0,4,0,0"/>
+            </StackPanel>
+        </Border>
+
+        <wv2:WebView2 x:Name="Browser" Grid.Row="1"/>
+
+        <Border Grid.Row="2" Background="#2C2C2E" Padding="16,10">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock x:Name="StatusText" FontSize="11" Foreground="#888888"
+                           VerticalAlignment="Center" Text="Waiting for sign-in…"/>
+                <Button Grid.Column="1" Content="Done — I'm signed in"
+                        Style="{StaticResource PrimaryButton}" Click="Done_Click"
+                        x:Name="DoneButton" IsEnabled="False"/>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>
