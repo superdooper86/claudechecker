@@ -16,7 +16,8 @@
 
             <!-- Update banner -->
             <Border x:Name="UpdateBanner" DockPanel.Dock="Top" Visibility="Collapsed"
-                    Background="#E8F2FB" BorderBrush="#B3D6F5" BorderThickness="0,0,0,1"
+                    Background="{StaticResource BannerBgBrush}"
+                    BorderBrush="{StaticResource BannerBorderBrush}" BorderThickness="0,0,0,1"
                     Cursor="Hand" MouseLeftButtonUp="UpdateBanner_Click">
                 <Grid Margin="16,10">
                     <Grid.ColumnDefinitions>
@@ -39,7 +40,7 @@
 
             <!-- Footer -->
             <Border DockPanel.Dock="Bottom" BorderBrush="{StaticResource BorderBrush}"
-                    BorderThickness="0,1,0,0" Background="#FAFAFA">
+                    BorderThickness="0,1,0,0" Background="{StaticResource SurfaceBrush}">
                 <Grid Margin="12,8">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
@@ -74,7 +75,7 @@
                 Background="{StaticResource BackgroundBrush}">
             <DockPanel>
                 <Border DockPanel.Dock="Top" BorderBrush="{StaticResource BorderBrush}"
-                        BorderThickness="0,0,0,1" Background="#FAFAFA" Padding="12,10">
+                        BorderThickness="0,0,0,1" Background="{StaticResource SurfaceBrush}" Padding="12,10">
                     <Grid>
                         <Button Content="← Back" HorizontalAlignment="Left"
                                 Style="{StaticResource SmallButton}" BorderThickness="0"
@@ -188,7 +189,7 @@
                 Background="{StaticResource BackgroundBrush}">
             <DockPanel>
                 <Border DockPanel.Dock="Top" BorderBrush="{StaticResource BorderBrush}"
-                        BorderThickness="0,0,0,1" Background="#FAFAFA" Padding="12,10">
+                        BorderThickness="0,0,0,1" Background="{StaticResource SurfaceBrush}" Padding="12,10">
                     <Grid>
                         <Button Content="← Back" HorizontalAlignment="Left"
                                 Style="{StaticResource SmallButton}" BorderThickness="0"
