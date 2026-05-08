@@ -163,7 +163,7 @@
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock Text="ClaudeChecker" FontSize="12" FontWeight="SemiBold"
                                                    Foreground="{DynamicResource TextBrush}"/>
-                                        <Border Background="#F0F0F0" CornerRadius="3"
+                                        <Border Background="{DynamicResource BadgeBrush}" CornerRadius="3"
                                                 Margin="6,0,0,0" Padding="5,1">
                                             <TextBlock x:Name="VersionLabel" FontSize="11"
                                                        Foreground="{DynamicResource SecondaryBrush}"
