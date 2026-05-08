@@ -255,7 +255,7 @@ public partial class PopupWindow : Window
         var label = new TextBlock
         {
             Text = VM.IsSignedIn ? $"Signed in — {VM.UserEmail}" : "Not signed in",
-            FontSize = 13, FontWeight = FontWeights.SemiBold, Foreground = Brushes.White,
+            FontSize = 13, FontWeight = FontWeights.SemiBold, Foreground = (SolidColorBrush)Application.Current.Resources["TextBrush"],
             VerticalAlignment = VerticalAlignment.Center,
         };
         var authRow = new StackPanel { Orientation = Orientation.Horizontal };
