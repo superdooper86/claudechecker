@@ -179,10 +179,33 @@ public class UsageViewModel : INotifyPropertyChanged
                 throw new Exception($"Bootstrap failed ({(int)bootstrapResp.StatusCode}).");
 
             var bootstrapJson = await bootstrapResp.Content.ReadAsStringAsync();
-            // Save raw bootstrap for diagnostics — lets us see if 'capabilities' is returned
-            AppSettings.Default.DebugInfo = bootstrapJson.Length > 2000
-                ? bootstrapJson.Substring(0, 2000) : bootstrapJson;
-            AppSettings.Default.Save();
+            // Targeted debug: log org property names + capabilities value so we can see
+            // exactly what the HttpClient bootstrap response contains
+            try
+            {
+                using var dbgDoc = System.Text.Json.JsonDocument.Parse(bootstrapJson);
+                var dbgRoot = dbgDoc.RootElement;
+                var dbg = $"len:{bootstrapJson.Length}";
+                if (dbgRoot.TryGetProperty("account", out var dbgAcct) &&
+                    dbgAcct.TryGetProperty("memberships", out var dbgMems) &&
+                    dbgMems.GetArrayLength() > 0 &&
+                    dbgMems[0].TryGetProperty("organization", out var dbgOrg))
+                {
+                    var keys = string.Join(",", dbgOrg.EnumerateObject().Select(p => p.Name));
+                    dbg += $"|org_keys:{keys}";
+                    if (dbgOrg.TryGetProperty("capabilities", out var dbgCaps))
+                        dbg += $"|caps:{dbgCaps.GetRawText()}";
+                    else
+                        dbg += "|caps:MISSING";
+                }
+                else
+                {
+                    dbg += "|no_memberships";
+                }
+                AppSettings.Default.DebugInfo = dbg;
+                AppSettings.Default.Save();
+            }
+            catch { /* debug only — never block refresh */ }
             var (email, orgId, planLabel) = ParseBootstrap(bootstrapJson);
 
             if (string.IsNullOrEmpty(orgId))
