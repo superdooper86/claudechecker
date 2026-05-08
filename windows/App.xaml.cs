@@ -78,19 +78,9 @@ public partial class App : Application
         if (_popup == null)
         {
             _popup = new PopupWindow();
-            _popup.Closed += (_, _) => _popup = null;
         }
-        PositionPopup();
         _popup.Show();
         _popup.Activate();
-    }
-
-    private void PositionPopup()
-    {
-        if (_popup == null) return;
-        var workArea = SystemParameters.WorkArea;
-        _popup.Left = workArea.Right  - _popup.Width  - 8;
-        _popup.Top  = workArea.Bottom - _popup.Height - 8;
     }
 
     public void ScheduleTimer(int seconds)
