@@ -8,8 +8,12 @@ namespace ClaudeCheckerWindows;
 
 public partial class App : Application
 {
-    public static UsageViewModel ViewModel { get; } = new();
-    public static UpdateManager  Updater   { get; } = new();
+    public static UsageViewModel    ViewModel       { get; } = new();
+    public static UpdateManager     Updater         { get; } = new();
+    // Persistent hidden WebView2 — shares the same user data folder as LoginWindow
+    // so its cookies (including cf_clearance) are always live. Used on every refresh
+    // for endpoints that need a real browser session (overage, prepaid).
+    public static WebViewFetchWindow BackgroundBrowser { get; } = new();
 
     private Forms.NotifyIcon? _tray;
     private PopupWindow?      _popup;
@@ -36,10 +40,15 @@ public partial class App : Application
         ShowPopup();
         ScheduleTimer(ViewModel.RefreshInterval);
 
+        // Show background browser window on the UI thread before Task.Run
+        BackgroundBrowser.Show();
+
         _ = Task.Run(async () =>
         {
             await ViewModel.LoadFromCacheAsync();
-            await Task.Delay(1000);
+            // Initialize the persistent background browser (navigates to claude.ai once)
+            await Application.Current.Dispatcher.InvokeAsync(
+                () => BackgroundBrowser.InitAsync()).Task.Unwrap();
             await ViewModel.RefreshAsync();
             await Updater.CheckForUpdatesAsync();
         });
