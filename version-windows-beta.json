@@ -1,5 +1,5 @@
 {
-  "version": "0.0.1-beta.22",
-  "url": "https://github.com/superdooper86/claudechecker/releases/download/win-v0.0.1-beta.22/ClaudeChecker-Windows.zip",
-  "notes": "## What's new in beta.22\r\n\r\n- Fixed build error: Task unwrap for Dispatcher.InvokeAsync with async lambda\r\n- Removed unused field warning"
+  "version": "0.0.1-beta.23",
+  "url": "https://github.com/superdooper86/claudechecker/releases/download/win-v0.0.1-beta.23/ClaudeChecker-Windows.zip",
+  "notes": "## What's new in beta.23\r\n\r\n- About section now shows \"vX.X.X available\" label when an update is available (not just button label change)\r\n- Sign-in: fixed app showing signed out after login window closes — cookies and cached auth now correctly set IsSignedIn=true\r\n- Sign-in: added brief delay before refresh so WebView2 user data folder is fully released by LoginWindow before reuse\r\n- Wider cookie domain filter (anthropic.com included alongside claude.ai)\r\n- Broader JS paths for email and org ID in bootstrap response"
 }
