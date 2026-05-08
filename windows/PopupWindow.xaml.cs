@@ -12,6 +12,7 @@ public partial class PopupWindow : Window
     private static readonly UsageViewModel VM      = App.ViewModel;
     private static readonly UpdateManager  Updater = App.Updater;
     private readonly DispatcherTimer _clockTimer;
+    private bool _dialogOpen;
 
     public PopupWindow()
     {
@@ -29,7 +30,7 @@ public partial class PopupWindow : Window
         UpdateBannerState();
         UpdateFooter();
 
-        Deactivated += (_, _) => Hide();
+        Deactivated += (_, _) => { if (!_dialogOpen) Hide(); };
     }
 
     // ── Card rendering ───────────────────────────────────────────────
@@ -299,12 +300,16 @@ public partial class PopupWindow : Window
 
     private void SignIn_Click(object s, RoutedEventArgs e)
     {
+        _dialogOpen = true;
         var login = new LoginWindow { Owner = this };
         if (login.ShowDialog() == true)
         {
             _ = VM.RefreshAsync();
             InitSettings();
         }
+        _dialogOpen = false;
+        Show();
+        Activate();
     }
 
     private async void SignOut_Click(object s, RoutedEventArgs e)
