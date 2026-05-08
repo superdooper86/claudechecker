@@ -89,12 +89,35 @@ public class UsageViewModel : INotifyPropertyChanged
                 return;
             }
 
-            using var http = BuildClient(cookies);
+            // Try HttpClient first (fast path)
+            var (limits, overage, prepaid, email, orgId, ok) = await TryHttpRefreshAsync(cookies);
 
-            // Bootstrap: 200 = authenticated. Non-200 = session expired.
-            var bootstrapResp = await http.GetAsync("https://claude.ai/api/bootstrap");
-            if (!bootstrapResp.IsSuccessStatusCode)
+            // If HttpClient failed, fall back to WebView2 (uses existing browser session)
+            if (!ok)
+                (limits, email, orgId) = await TryWebView2RefreshAsync();
+
+            // Still no org ID? Use cached values from last successful login
+            if (string.IsNullOrEmpty(orgId) && !string.IsNullOrEmpty(AppSettings.Default.OrgId))
+                orgId = AppSettings.Default.OrgId;
+            if (string.IsNullOrEmpty(email) && !string.IsNullOrEmpty(AppSettings.Default.Email))
+                email = AppSettings.Default.Email;
+
+            // If we have cached usage from login and still got nothing live, use that
+            if (limits.Count == 0 && !string.IsNullOrEmpty(AppSettings.Default.UsageJson))
             {
+                try
+                {
+                    var cached = System.Text.Json.JsonSerializer.Deserialize<UsageResponse>(
+                        AppSettings.Default.UsageJson, JsonOpts);
+                    limits = BuildLimits(cached);
+                }
+                catch { }
+            }
+
+            bool isAuth = !string.IsNullOrEmpty(email) || !string.IsNullOrEmpty(orgId) || limits.Count > 0;
+            if (!isAuth && cookies.Count > 0)
+            {
+                // Cookies exist but nothing worked — session likely expired
                 await Application.Current.Dispatcher.InvokeAsync(() =>
                 {
                     IsSignedIn   = false;
@@ -102,35 +125,6 @@ public class UsageViewModel : INotifyPropertyChanged
                     IsLoading    = false;
                 });
                 return;
-            }
-
-            // Parse email and org ID (best-effort — don't fail auth if org ID is missing)
-            var bootstrapJson = await bootstrapResp.Content.ReadAsStringAsync();
-            var (email, orgId) = ParseBootstrap(bootstrapJson);
-
-            // Resolve org ID through fallback chain
-            if (string.IsNullOrEmpty(orgId))
-                orgId = await FetchOrgIdFromListAsync(http);
-            if (string.IsNullOrEmpty(orgId) && !string.IsNullOrEmpty(AppSettings.Default.OrgId))
-                orgId = AppSettings.Default.OrgId;
-
-            List<AgentLimit> limits = [];
-            OverageSpendLimit? overage = null;
-            PrepaidCredits? prepaid = null;
-
-            if (!string.IsNullOrEmpty(orgId))
-            {
-                AppSettings.Default.OrgId = orgId;
-                AppSettings.Default.Save();
-
-                var usageTask   = FetchAsync<UsageResponse>(http, $"https://claude.ai/api/organizations/{orgId}/usage");
-                var overageTask = FetchAsync<OverageSpendLimit>(http, $"https://claude.ai/api/organizations/{orgId}/overage_spend_limit");
-                var prepaidTask = FetchAsync<PrepaidCredits>(http, $"https://claude.ai/api/organizations/{orgId}/prepaid/credits");
-                await Task.WhenAll(usageTask, overageTask, prepaidTask);
-
-                limits = BuildLimits(usageTask.Result);
-                overage = overageTask.Result;
-                prepaid = prepaidTask.Result;
             }
 
             foreach (var limit in limits)
@@ -149,9 +143,9 @@ public class UsageViewModel : INotifyPropertyChanged
                 Limits       = limits;
                 Overage      = overage;
                 Prepaid      = prepaid;
-                UserEmail    = email ?? UserEmail;
+                if (!string.IsNullOrEmpty(email)) UserEmail = email;
                 IsSignedIn   = true;
-                ErrorMessage = string.IsNullOrEmpty(orgId) ? "Signed in, but couldn't find your organization data." : null;
+                ErrorMessage = null;
                 LastUpdated  = DateTime.Now;
                 IsLoading    = false;
             });
@@ -166,10 +160,95 @@ public class UsageViewModel : INotifyPropertyChanged
         }
     }
 
+    private async Task<(List<AgentLimit>, OverageSpendLimit?, PrepaidCredits?, string?, string?, bool)>
+        TryHttpRefreshAsync(List<(string Name, string Value, string Domain, string Path)> cookies)
+    {
+        try
+        {
+            using var http = BuildClient(cookies);
+            var bootstrapResp = await http.GetAsync("https://claude.ai/api/bootstrap");
+            if (!bootstrapResp.IsSuccessStatusCode)
+                return ([], null, null, null, null, false);
+
+            var (email, orgId) = ParseBootstrap(await bootstrapResp.Content.ReadAsStringAsync());
+
+            if (string.IsNullOrEmpty(orgId))
+                orgId = await FetchOrgIdFromListAsync(http);
+            if (string.IsNullOrEmpty(orgId) && !string.IsNullOrEmpty(AppSettings.Default.OrgId))
+                orgId = AppSettings.Default.OrgId;
+
+            if (string.IsNullOrEmpty(orgId))
+                return ([], null, null, email, orgId, true);
+
+            AppSettings.Default.OrgId = orgId;
+            AppSettings.Default.Save();
+
+            var ut = FetchAsync<UsageResponse>(http, $"https://claude.ai/api/organizations/{orgId}/usage");
+            var ot = FetchAsync<OverageSpendLimit>(http, $"https://claude.ai/api/organizations/{orgId}/overage_spend_limit");
+            var pt = FetchAsync<PrepaidCredits>(http, $"https://claude.ai/api/organizations/{orgId}/prepaid/credits");
+            await Task.WhenAll(ut, ot, pt);
+
+            return (BuildLimits(ut.Result), ot.Result, pt.Result, email, orgId, true);
+        }
+        catch { return ([], null, null, null, null, false); }
+    }
+
+    private static async Task<(List<AgentLimit>, string?, string?)> TryWebView2RefreshAsync()
+    {
+        try
+        {
+            const string script = @"(async()=>{try{
+                const b=await(await fetch('/api/bootstrap',{headers:{accept:'application/json'}})).json();
+                const id=b?.memberships?.[0]?.organization?.uuid||b?.organizations?.[0]?.uuid||null;
+                const em=b?.account?.email_address||null;
+                if(!id)return{email:em,orgId:null,usage:null};
+                const u=await(await fetch('/api/organizations/'+id+'/usage',{headers:{accept:'application/json'}})).json();
+                return{email:em,orgId:id,usage:u};
+            }catch(ex){return null;}})()";
+
+            var resultJson = await Application.Current.Dispatcher.InvokeAsync(async () =>
+            {
+                var host = new WebViewFetchWindow();
+                host.Show();
+                try   { return await host.FetchAsync("https://claude.ai", script); }
+                finally { host.Close(); }
+            }).Task;
+
+            if (resultJson == null || resultJson == "null") return ([], null, null);
+
+            using var doc = System.Text.Json.JsonDocument.Parse(resultJson);
+            var root = doc.RootElement;
+
+            string? email = root.TryGetProperty("email", out var em) && em.ValueKind == System.Text.Json.JsonValueKind.String
+                ? em.GetString() : null;
+            string? orgId = root.TryGetProperty("orgId", out var oi) && oi.ValueKind == System.Text.Json.JsonValueKind.String
+                ? oi.GetString() : null;
+
+            List<AgentLimit> limits = [];
+            if (root.TryGetProperty("usage", out var us) && us.ValueKind == System.Text.Json.JsonValueKind.Object)
+            {
+                var usage = System.Text.Json.JsonSerializer.Deserialize<UsageResponse>(
+                    us.GetRawText(), new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                limits = BuildLimits(usage);
+
+                // Cache for next time
+                AppSettings.Default.UsageJson = us.GetRawText();
+                if (!string.IsNullOrEmpty(orgId)) AppSettings.Default.OrgId = orgId;
+                if (!string.IsNullOrEmpty(email)) AppSettings.Default.Email = email;
+                AppSettings.Default.Save();
+            }
+
+            return (limits, email, orgId);
+        }
+        catch { return ([], null, null); }
+    }
+
     public async Task SignOutAsync()
     {
         AppSettings.Default.CookieStore = "";
         AppSettings.Default.OrgId       = "";
+        AppSettings.Default.Email       = "";
+        AppSettings.Default.UsageJson   = "";
         AppSettings.Default.Save();
 
         await Application.Current.Dispatcher.InvokeAsync(() =>
@@ -286,7 +365,7 @@ public class UsageViewModel : INotifyPropertyChanged
         catch { return null; }
     }
 
-    private List<AgentLimit> BuildLimits(UsageResponse? usage)
+    private static List<AgentLimit> BuildLimits(UsageResponse? usage)
     {
         if (usage == null) return [];
         var now    = DateTime.Now;
