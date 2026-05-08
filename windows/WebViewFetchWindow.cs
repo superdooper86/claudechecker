@@ -17,7 +17,7 @@ namespace ClaudeCheckerWindows;
 //     claude.ai once, then scripts run directly on the live page every refresh.
 //     No re-navigation = no memory accumulation.
 //   • One-shot (LoginWindow): created, used, closed — same as before.
-internal sealed class WebViewFetchWindow : Window
+public sealed class WebViewFetchWindow : Window
 {
     private readonly WebView2 _wv = new();
     private bool _initialized;
@@ -26,6 +26,8 @@ internal sealed class WebViewFetchWindow : Window
     private static readonly string UserDataFolder =
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "ClaudeChecker", "WebView2");
+
+    public bool IsReady => _readyForScript;
 
     public WebViewFetchWindow()
     {
