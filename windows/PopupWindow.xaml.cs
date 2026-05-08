@@ -14,7 +14,7 @@ public partial class PopupWindow : Window
     private static readonly UsageViewModel VM      = App.ViewModel;
     private static readonly UpdateManager  Updater = App.Updater;
     private readonly DispatcherTimer _clockTimer;
-    private bool _dialogOpen;
+
 
     [DllImport("dwmapi.dll")]
     private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int value, int size);
@@ -312,14 +312,12 @@ public partial class PopupWindow : Window
 
     private async void SignIn_Click(object s, RoutedEventArgs e)
     {
-        _dialogOpen = true;
         var login = new LoginWindow { Owner = this };
         if (login.ShowDialog() == true)
         {
             await VM.RefreshAsync();
             InitSettings();
         }
-        _dialogOpen = false;
         Show();
         Activate();
     }
