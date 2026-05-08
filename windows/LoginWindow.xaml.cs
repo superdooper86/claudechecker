@@ -47,8 +47,8 @@ public partial class LoginWindow : Window
                     : "Complete sign-in, then click Done.";
             });
 
-            // Auto-close as soon as we detect sign-in on any claude.ai page
-            if (signedIn && !uri.Contains("/login") && !uri.Contains("/signin"))
+            // Auto-close once we land on any claude.ai page that isn't the login flow
+            if (!uri.Contains("/login") && !uri.Contains("/signin") && signedIn)
                 await SaveAndClose(cookies);
         };
     }
@@ -72,8 +72,9 @@ public partial class LoginWindow : Window
         {
             const string script = @"(async()=>{try{
                 const b=await(await fetch('/api/bootstrap',{headers:{accept:'application/json'}})).json();
-                const id=b?.memberships?.[0]?.organization?.uuid||b?.organizations?.[0]?.uuid||null;
-                const e=b?.account?.email_address||null;
+                const id=b?.memberships?.[0]?.organization?.uuid||b?.organizations?.[0]?.uuid
+                         ||b?.default_organization?.uuid||null;
+                const e=b?.account?.email_address||b?.account?.email||b?.email||null;
                 if(!id)return{email:e,orgId:null,usage:null};
                 const u=await(await fetch('/api/organizations/'+id+'/usage',{headers:{accept:'application/json'}})).json();
                 return{email:e,orgId:id,usage:u};
