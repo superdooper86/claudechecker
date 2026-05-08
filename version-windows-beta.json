@@ -1,5 +1,5 @@
 {
-  "version": "0.0.1-beta.24",
-  "url": "https://github.com/superdooper86/claudechecker/releases/download/win-v0.0.1-beta.24/ClaudeChecker-Windows.zip",
-  "notes": "## What's new in beta.24\r\n\r\n- Sign-in now shows email and data immediately after login (loads from cache set during login flow)\r\n- Background refresh runs 3 seconds after login — avoids WebView2 user data folder lock race\r\n- Added /api/organizations and personal /api/usage fallbacks when bootstrap has no org ID\r\n- Broader JS paths for email and org ID"
+  "version": "0.0.1-beta.25",
+  "url": "https://github.com/superdooper86/claudechecker/releases/download/win-v0.0.1-beta.25/ClaudeChecker-Windows.zip",
+  "notes": "## What's new in beta.25\r\n\r\n- Debug: Settings panel now shows bootstrap diagnostic info after sign-in (helps diagnose missing data)"
 }
