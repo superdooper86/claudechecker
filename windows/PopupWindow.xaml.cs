@@ -199,13 +199,31 @@ public partial class PopupWindow : Window
     private void OnUpdaterChanged(string? prop)
     {
         if (prop is nameof(UpdateManager.UpdateAvailable) or nameof(UpdateManager.LatestVersion))
+        {
             UpdateBannerState();
+            UpdateAboutSection();
+        }
         if (prop is nameof(UpdateManager.DownloadProgress))
             UpdateProgress.Value = Updater.DownloadProgress * 100;
         if (prop is nameof(UpdateManager.StatusMessage))
             UpdateStatusText.Text = Updater.StatusMessage;
         if (prop is nameof(UpdateManager.UpdateComplete) && Updater.UpdateComplete)
             InstallButton.Visibility = Visibility.Collapsed;
+    }
+
+    private void UpdateAboutSection()
+    {
+        if (Updater.UpdateAvailable)
+        {
+            UpdateAvailableText.Text       = $"v{Updater.LatestVersion} available";
+            UpdateAvailableText.Visibility = Visibility.Visible;
+            CheckUpdateButton.Content      = "Install";
+        }
+        else
+        {
+            UpdateAvailableText.Visibility = Visibility.Collapsed;
+            CheckUpdateButton.Content      = "Check";
+        }
     }
 
     private void UpdateBannerState()
@@ -236,7 +254,7 @@ public partial class PopupWindow : Window
     {
         VersionLabel.Text    = $"v{Updater.CurrentVersion}";
         BetaToggle.IsChecked = Updater.BetaChannel;
-        CheckUpdateButton.Content = Updater.UpdateAvailable ? "Install" : "Check";
+        UpdateAboutSection();
 
         var intervals = new[] { ("1 min", 60), ("2 min", 120), ("3 min", 180),
                                 ("4 min", 240), ("5 min", 300), ("10 min", 600) };
@@ -315,6 +333,9 @@ public partial class PopupWindow : Window
         var login = new LoginWindow { Owner = this };
         if (login.ShowDialog() == true)
         {
+            // Brief pause so the LoginWindow WebView2 fully releases its user data folder lock
+            // before RefreshAsync may create another WebView2 on the same folder.
+            await Task.Delay(1500);
             await VM.RefreshAsync();
             InitSettings();
         }
