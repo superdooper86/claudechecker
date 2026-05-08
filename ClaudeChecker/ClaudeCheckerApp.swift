@@ -40,14 +40,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Popover
         popover = NSPopover()
-        popover?.contentSize = NSSize(width: 480, height: 640)
         popover?.behavior = .transient
         popover?.animates = true
-        popover?.contentViewController = NSHostingController(
+        let hc = NSHostingController(
             rootView: ContentView()
                 .environmentObject(usageViewModel)
                 .environmentObject(updateManager)
         )
+        hc.sizingOptions = .preferredContentSize
+        popover?.contentViewController = hc
 
         // React to limits or menubar toggle changes
         usageViewModel.$limits
@@ -236,3 +237,4 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
 }
+
