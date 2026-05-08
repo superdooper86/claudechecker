@@ -1,6 +1,6 @@
-## What's new in beta.20
+## What's new in beta.21
 
-- Fixed: app now correctly shows you as signed in after login
-- Fixed: org ID is fetched from API rather than hardcoded; tries multiple JSON paths
-- Fixed: auth check now uses HTTP 200 from bootstrap (not whether org ID was found)
-- Added browser User-Agent header so API responds correctly
+- Fixed: clicking Sign In now auto-closes as soon as you are detected as signed in (no need to click Done)
+- Fixed: login now fetches and caches your data directly via the browser session (no more authentication failures)
+- Fixed: periodic refresh falls back to browser-session API calls when HttpClient is rejected
+- Fixed: cached usage from login is shown immediately while refreshing
