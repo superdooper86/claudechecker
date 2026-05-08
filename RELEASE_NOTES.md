@@ -1,4 +1,4 @@
-## What's new in v1.1.4-beta.2
+## What's new in v1.1.4-beta.3
 
-### Improvements
-- Plan name (e.g. Pro, Max) is now read from the API instead of being hardcoded
+### Bug fix
+- Plan name now updates correctly on every refresh (was only set on first launch)
