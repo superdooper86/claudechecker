@@ -1,10 +1,8 @@
 using System;
-using System.Drawing;
 using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Forms;
 using System.Windows.Threading;
-using Application = System.Windows.Application;
+using Forms = System.Windows.Forms;
 
 namespace ClaudeCheckerWindows;
 
@@ -13,9 +11,9 @@ public partial class App : Application
     public static UsageViewModel ViewModel { get; } = new();
     public static UpdateManager  Updater   { get; } = new();
 
-    private NotifyIcon?   _tray;
-    private PopupWindow?  _popup;
-    private DispatcherTimer? _timer;
+    private Forms.NotifyIcon? _tray;
+    private PopupWindow?      _popup;
+    private DispatcherTimer?  _timer;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -33,40 +31,37 @@ public partial class App : Application
 
     private void SetupTray()
     {
-        _tray = new NotifyIcon
+        _tray = new Forms.NotifyIcon
         {
             Text    = "ClaudeChecker",
             Visible = true,
             Icon    = LoadIcon(),
         };
+
         _tray.MouseClick += (_, e) =>
         {
-            if (e.Button == MouseButtons.Left)
-                TogglePopup();
+            if (e.Button == Forms.MouseButtons.Left)
+                Dispatcher.InvokeAsync(TogglePopup);
         };
+
         _tray.ContextMenuStrip = BuildContextMenu();
 
-        ViewModel.PropertyChanged += (_, e) =>
-        {
-            if (e.PropertyName is nameof(UsageViewModel.Limits) or nameof(UsageViewModel.ShowInTaskbar))
-                UpdateTrayText();
-        };
+        ViewModel.PropertyChanged += (_, _) => UpdateTrayText();
+        Updater.PropertyChanged   += (_, _) => UpdateTrayText();
     }
 
-    private static Icon LoadIcon()
+    private static System.Drawing.Icon LoadIcon()
     {
-        try { return new Icon("Assets/icon.ico"); }
-        catch { return SystemIcons.Application; }
+        try { return new System.Drawing.Icon("Assets/icon.ico"); }
+        catch { return System.Drawing.SystemIcons.Application; }
     }
 
-    private ContextMenuStrip BuildContextMenu()
+    private Forms.ContextMenuStrip BuildContextMenu()
     {
-        var menu = new ContextMenuStrip();
-        menu.Items.Add("Show ClaudeChecker", null, (_, _) => ShowPopup());
-        menu.Items.Add(new ToolStripSeparator());
-        menu.Items.Add("Quit", null, (_, _) => Quit());
-        menu.BackColor = System.Drawing.Color.FromArgb(40, 40, 40);
-        menu.ForeColor = System.Drawing.Color.White;
+        var menu = new Forms.ContextMenuStrip();
+        menu.Items.Add("Show ClaudeChecker", null, (_, _) => Dispatcher.InvokeAsync(ShowPopup));
+        menu.Items.Add(new Forms.ToolStripSeparator());
+        menu.Items.Add("Quit", null, (_, _) => Dispatcher.InvokeAsync(Quit));
         return menu;
     }
 
@@ -85,7 +80,6 @@ public partial class App : Application
             _popup = new PopupWindow();
             _popup.Closed += (_, _) => _popup = null;
         }
-
         PositionPopup();
         _popup.Show();
         _popup.Activate();
@@ -95,8 +89,8 @@ public partial class App : Application
     {
         if (_popup == null) return;
         var workArea = SystemParameters.WorkArea;
-        _popup.Left  = workArea.Right  - _popup.Width  - 8;
-        _popup.Top   = workArea.Bottom - _popup.Height - 8;
+        _popup.Left = workArea.Right  - _popup.Width  - 8;
+        _popup.Top  = workArea.Bottom - _popup.Height - 8;
     }
 
     public void ScheduleTimer(int seconds)
