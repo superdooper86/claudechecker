@@ -2,6 +2,7 @@ using Microsoft.Web.WebView2.Core;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows;
 
@@ -9,6 +10,8 @@ namespace ClaudeCheckerWindows;
 
 public partial class LoginWindow : Window
 {
+    private bool _closing;
+
     public LoginWindow()
     {
         InitializeComponent();
@@ -27,7 +30,7 @@ public partial class LoginWindow : Window
 
         Browser.CoreWebView2.NavigationCompleted += async (_, e) =>
         {
-            if (!e.IsSuccess) return;
+            if (!e.IsSuccess || _closing) return;
             var uri = Browser.CoreWebView2.Source;
             if (!uri.Contains("claude.ai")) return;
 
@@ -44,23 +47,58 @@ public partial class LoginWindow : Window
                     : "Complete sign-in, then click Done.";
             });
 
-            // Auto-close only on explicit post-login redirects, not on initial load
-            if (signedIn && (uri.Contains("/chats") || uri.Contains("/new")))
-            {
+            // Auto-close as soon as we detect sign-in on any claude.ai page
+            if (signedIn && !uri.Contains("/login") && !uri.Contains("/signin"))
                 await SaveAndClose(cookies);
-            }
         };
     }
 
     private async void Done_Click(object sender, RoutedEventArgs e)
     {
+        if (_closing) return;
         var cookies = await Browser.CoreWebView2.CookieManager.GetCookiesAsync("https://claude.ai");
         await SaveAndClose(cookies);
     }
 
     private async Task SaveAndClose(IReadOnlyList<CoreWebView2Cookie> cookies)
     {
+        if (_closing) return;
+        _closing = true;
+
         UsageViewModel.SaveCookies(cookies);
+
+        // Fetch bootstrap + usage from within WebView2 (already authenticated, no header issues)
+        try
+        {
+            const string script = @"(async()=>{try{
+                const b=await(await fetch('/api/bootstrap',{headers:{accept:'application/json'}})).json();
+                const id=b?.memberships?.[0]?.organization?.uuid||b?.organizations?.[0]?.uuid||null;
+                const e=b?.account?.email_address||null;
+                if(!id)return{email:e,orgId:null,usage:null};
+                const u=await(await fetch('/api/organizations/'+id+'/usage',{headers:{accept:'application/json'}})).json();
+                return{email:e,orgId:id,usage:u};
+            }catch(ex){return{error:String(ex)};}})()";
+
+            var json = await Browser.CoreWebView2.ExecuteScriptAsync(script);
+            if (json != "null" && !string.IsNullOrEmpty(json))
+            {
+                using var doc = JsonDocument.Parse(json);
+                var root = doc.RootElement;
+
+                if (root.TryGetProperty("email", out var em) && em.ValueKind == JsonValueKind.String)
+                    AppSettings.Default.Email = em.GetString() ?? "";
+
+                if (root.TryGetProperty("orgId", out var oi) && oi.ValueKind == JsonValueKind.String)
+                    AppSettings.Default.OrgId = oi.GetString() ?? "";
+
+                if (root.TryGetProperty("usage", out var us) && us.ValueKind == JsonValueKind.Object)
+                    AppSettings.Default.UsageJson = us.GetRawText();
+
+                AppSettings.Default.Save();
+            }
+        }
+        catch { }
+
         await Dispatcher.InvokeAsync(() => DialogResult = true);
     }
 }
