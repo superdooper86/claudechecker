@@ -1,7 +1,9 @@
 using ClaudeCheckerWindows.Controls;
 using System;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Threading;
 
@@ -13,6 +15,17 @@ public partial class PopupWindow : Window
     private static readonly UpdateManager  Updater = App.Updater;
     private readonly DispatcherTimer _clockTimer;
     private bool _dialogOpen;
+
+    [DllImport("dwmapi.dll")]
+    private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int value, int size);
+
+    private void ApplyTitleBarTheme()
+    {
+        var hwnd = new WindowInteropHelper(this).Handle;
+        if (hwnd == IntPtr.Zero) return;
+        int dark = ThemeManager.IsDark ? 1 : 0;
+        DwmSetWindowAttribute(hwnd, 20, ref dark, sizeof(int));
+    }
 
     public PopupWindow()
     {
@@ -31,6 +44,8 @@ public partial class PopupWindow : Window
         UpdateFooter();
 
         Closing += (_, e) => { e.Cancel = true; Hide(); };
+        SourceInitialized += (_, _) => ApplyTitleBarTheme();
+        ThemeManager.ThemeChanged += () => { ApplyTitleBarTheme(); RebuildCards(); };
     }
 
     // ── Card rendering ───────────────────────────────────────────────
