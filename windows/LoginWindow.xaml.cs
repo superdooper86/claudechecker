@@ -44,8 +44,8 @@ public partial class LoginWindow : Window
                     : "Complete sign-in, then click Done.";
             });
 
-            // Auto-close once clearly on the main app page
-            if (signedIn && (uri.Contains("/chats") || uri.Contains("/new") || uri == "https://claude.ai/"))
+            // Auto-close only on explicit post-login redirects, not on initial load
+            if (signedIn && (uri.Contains("/chats") || uri.Contains("/new")))
             {
                 await SaveAndClose(cookies);
             }
