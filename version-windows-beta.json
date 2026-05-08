@@ -1,5 +1,5 @@
 {
-  "version": "0.0.1-beta.18",
-  "url": "https://github.com/superdooper86/claudechecker/releases/download/win-v0.0.1-beta.18/ClaudeChecker-Windows.zip",
-  "notes": "## What's new in beta.18\r\n\r\n- Fixed startup crash caused by frozen WPF brushes\r\n- Added system dark/light theme support (auto-detected, updates every 5 seconds)\r\n- Native centered window instead of menubar popup\r\n- Update notifications now work correctly for pre-release builds"
+  "version": "0.0.1-beta.19",
+  "url": "https://github.com/superdooper86/claudechecker/releases/download/win-v0.0.1-beta.19/ClaudeChecker-Windows.zip",
+  "notes": "## What's new in beta.19\r\n\r\n- Fixed dark mode: button hover no longer white, ComboBox fully themed\r\n- Fixed logo and version badge in Settings panel\r\n- Fixed signed-in email showing blank (TextBrush instead of hardcoded white)\r\n- Fixed session limits not loading: org ID now fetched dynamically from API\r\n- Added anthropic-client-platform header for correct API responses"
 }
