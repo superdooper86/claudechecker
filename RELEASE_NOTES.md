@@ -1,4 +1,5 @@
 ## What's new in v1.1.3
 
-### Compact update banner
-The in-app update banner no longer shows full release notes — it now shows a short message and lets you tap Update to read what's new in the install sheet. This prevents the banner from pushing content around when release notes are long.
+### UI polish
+- Limit headers now read "5 Hour Limit" and "7 Day Limit" instead of "5hr"
+- Tapping anywhere on the blue update banner now opens the update window (not just the Update button)
