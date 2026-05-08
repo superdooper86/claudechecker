@@ -46,8 +46,8 @@ public class UsageViewModel : INotifyPropertyChanged
         set
         {
             Set(ref _refreshInterval, value);
-            Properties.Settings.Default.RefreshInterval = value;
-            Properties.Settings.Default.Save();
+            AppSettings.Default.RefreshInterval = value;
+            AppSettings.Default.Save();
         }
     }
 
@@ -58,16 +58,16 @@ public class UsageViewModel : INotifyPropertyChanged
         set
         {
             Set(ref _showInTaskbar, value);
-            Properties.Settings.Default.ShowInTaskbar = value;
-            Properties.Settings.Default.Save();
+            AppSettings.Default.ShowInTaskbar = value;
+            AppSettings.Default.Save();
         }
     }
 
     public UsageViewModel()
     {
-        _refreshInterval = Properties.Settings.Default.RefreshInterval > 0
-            ? Properties.Settings.Default.RefreshInterval : 120;
-        _showInTaskbar = Properties.Settings.Default.ShowInTaskbar;
+        _refreshInterval = AppSettings.Default.RefreshInterval > 0
+            ? AppSettings.Default.RefreshInterval : 120;
+        _showInTaskbar = AppSettings.Default.ShowInTaskbar;
         LoadBurnHistory();
         LoadPlaceholders();
     }
@@ -137,11 +137,8 @@ public class UsageViewModel : INotifyPropertyChanged
 
     public async Task SignOutAsync()
     {
-        var env = await CoreWebView2Environment.CreateAsync();
-        var dataManager = env.CreateCoreWebView2CookieManager();
-        // Clear via settings — simplest approach is to delete the stored cookies
-        Properties.Settings.Default.CookieStore = "";
-        Properties.Settings.Default.Save();
+        AppSettings.Default.CookieStore = "";
+        AppSettings.Default.Save();
 
         await Application.Current.Dispatcher.InvokeAsync(() =>
         {
@@ -155,7 +152,7 @@ public class UsageViewModel : INotifyPropertyChanged
     // Cookie store: we persist cookies as JSON in settings after login
     public static async Task<List<(string Name, string Value, string Domain, string Path)>> GetCookiesAsync()
     {
-        var raw = Properties.Settings.Default.CookieStore;
+        var raw = AppSettings.Default.CookieStore;
         if (string.IsNullOrEmpty(raw)) return [];
         try
         {
@@ -172,8 +169,8 @@ public class UsageViewModel : INotifyPropertyChanged
             .Where(c => c.Domain.Contains("claude.ai"))
             .Select(c => new CookieEntry { Name = c.Name, Value = c.Value, Domain = c.Domain, Path = c.Path })
             .ToList();
-        Properties.Settings.Default.CookieStore = JsonSerializer.Serialize(entries);
-        Properties.Settings.Default.Save();
+        AppSettings.Default.CookieStore = JsonSerializer.Serialize(entries);
+        AppSettings.Default.Save();
     }
 
     private static HttpClient BuildClient(List<(string Name, string Value, string Domain, string Path)> cookies)
@@ -280,7 +277,7 @@ public class UsageViewModel : INotifyPropertyChanged
     {
         try
         {
-            var raw = Properties.Settings.Default.BurnHistory;
+            var raw = AppSettings.Default.BurnHistory;
             if (string.IsNullOrEmpty(raw)) return;
             var saved = JsonSerializer.Deserialize<Dictionary<string, List<double>>>(raw);
             if (saved != null)
@@ -291,8 +288,8 @@ public class UsageViewModel : INotifyPropertyChanged
 
     private void SaveBurnHistory()
     {
-        Properties.Settings.Default.BurnHistory = JsonSerializer.Serialize(_burnHistory);
-        Properties.Settings.Default.Save();
+        AppSettings.Default.BurnHistory = JsonSerializer.Serialize(_burnHistory);
+        AppSettings.Default.Save();
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
