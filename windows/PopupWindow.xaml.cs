@@ -283,20 +283,6 @@ public partial class PopupWindow : Window
 
         SignOutButton.Visibility = VM.IsSignedIn ? Visibility.Visible : Visibility.Collapsed;
         SignInButton.Content     = VM.IsSignedIn ? "Re-authenticate" : "Sign In";
-
-        var dbg = AppSettings.Default.DebugInfo;
-        if (!string.IsNullOrEmpty(dbg))
-        {
-            DebugText.Text         = dbg;
-            DebugText.Visibility   = Visibility.Visible;
-            DebugBannerText.Text   = dbg;
-            DebugBanner.Visibility = Visibility.Visible;
-        }
-        else
-        {
-            DebugText.Visibility   = Visibility.Collapsed;
-            DebugBanner.Visibility = Visibility.Collapsed;
-        }
     }
 
     // ── Event handlers ───────────────────────────────────────────────
