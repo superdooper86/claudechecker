@@ -1,5 +1,5 @@
 {
-  "version": "0.0.1-beta.25",
-  "url": "https://github.com/superdooper86/claudechecker/releases/download/win-v0.0.1-beta.25/ClaudeChecker-Windows.zip",
-  "notes": "## What's new in beta.25\r\n\r\n- Debug: Settings panel now shows bootstrap diagnostic info after sign-in (helps diagnose missing data)"
+  "version": "0.0.1-beta.27",
+  "url": "https://github.com/superdooper86/claudechecker/releases/download/win-v0.0.1-beta.27/ClaudeChecker-Windows.zip",
+  "notes": "## What's new in beta.27\r\n\r\n- Fix build error: use WebMessageAsJson (not WebMessageAsString) and post plain JS objects via postMessage"
 }
