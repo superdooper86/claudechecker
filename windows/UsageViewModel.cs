@@ -78,7 +78,13 @@ public class UsageViewModel : INotifyPropertyChanged
         try
         {
             var cookies = await GetCookiesAsync();
-            if (cookies.Count == 0)
+
+            // Check if we have any persistent proof that the user authenticated
+            bool hasCookies    = cookies.Count > 0;
+            bool hasCachedAuth = !string.IsNullOrEmpty(AppSettings.Default.Email) ||
+                                 !string.IsNullOrEmpty(AppSettings.Default.OrgId);
+
+            if (!hasCookies && !hasCachedAuth)
             {
                 await Application.Current.Dispatcher.InvokeAsync(() =>
                 {
@@ -89,20 +95,18 @@ public class UsageViewModel : INotifyPropertyChanged
                 return;
             }
 
-            // Try HttpClient first (fast path)
-            var (limits, overage, prepaid, email, orgId, ok) = await TryHttpRefreshAsync(cookies);
+            // Try HttpClient first (fast path) — may be rejected by server CORS/header checks
+            var (limits, overage, prepaid, email, orgId, ok) = hasCookies
+                ? await TryHttpRefreshAsync(cookies)
+                : ([], null, null, null, null, false);
 
-            // If HttpClient failed, fall back to WebView2 (uses existing browser session)
+            // Fall back to WebView2 (uses the shared browser session, not HttpClient)
             if (!ok)
                 (limits, email, orgId) = await TryWebView2RefreshAsync();
 
-            // Still no org ID? Use cached values from last successful login
-            if (string.IsNullOrEmpty(orgId) && !string.IsNullOrEmpty(AppSettings.Default.OrgId))
-                orgId = AppSettings.Default.OrgId;
-            if (string.IsNullOrEmpty(email) && !string.IsNullOrEmpty(AppSettings.Default.Email))
-                email = AppSettings.Default.Email;
-
-            // If we have cached usage from login and still got nothing live, use that
+            // Fill in any blanks from cached values saved at login time
+            if (string.IsNullOrEmpty(email))  email  = AppSettings.Default.Email;
+            if (string.IsNullOrEmpty(orgId))  orgId  = AppSettings.Default.OrgId;
             if (limits.Count == 0 && !string.IsNullOrEmpty(AppSettings.Default.UsageJson))
             {
                 try
@@ -112,19 +116,6 @@ public class UsageViewModel : INotifyPropertyChanged
                     limits = BuildLimits(cached);
                 }
                 catch { }
-            }
-
-            bool isAuth = !string.IsNullOrEmpty(email) || !string.IsNullOrEmpty(orgId) || limits.Count > 0;
-            if (!isAuth && cookies.Count > 0)
-            {
-                // Cookies exist but nothing worked — session likely expired
-                await Application.Current.Dispatcher.InvokeAsync(() =>
-                {
-                    IsSignedIn   = false;
-                    ErrorMessage = "Session expired — click Sign In to re-authenticate.";
-                    IsLoading    = false;
-                });
-                return;
             }
 
             foreach (var limit in limits)
@@ -144,6 +135,8 @@ public class UsageViewModel : INotifyPropertyChanged
                 Overage      = overage;
                 Prepaid      = prepaid;
                 if (!string.IsNullOrEmpty(email)) UserEmail = email;
+                // Trust that cookies / cached auth mean the user IS signed in,
+                // even if the live fetch failed this cycle.
                 IsSignedIn   = true;
                 ErrorMessage = null;
                 LastUpdated  = DateTime.Now;
@@ -199,8 +192,9 @@ public class UsageViewModel : INotifyPropertyChanged
         {
             const string script = @"(async()=>{try{
                 const b=await(await fetch('/api/bootstrap',{headers:{accept:'application/json'}})).json();
-                const id=b?.memberships?.[0]?.organization?.uuid||b?.organizations?.[0]?.uuid||null;
-                const em=b?.account?.email_address||null;
+                const id=b?.memberships?.[0]?.organization?.uuid||b?.organizations?.[0]?.uuid
+                         ||b?.default_organization?.uuid||null;
+                const em=b?.account?.email_address||b?.account?.email||b?.email||null;
                 if(!id)return{email:em,orgId:null,usage:null};
                 const u=await(await fetch('/api/organizations/'+id+'/usage',{headers:{accept:'application/json'}})).json();
                 return{email:em,orgId:id,usage:u};
@@ -276,7 +270,7 @@ public class UsageViewModel : INotifyPropertyChanged
     public static void SaveCookies(IEnumerable<CoreWebView2Cookie> cookies)
     {
         var entries = cookies
-            .Where(c => c.Domain.Contains("claude.ai"))
+            .Where(c => c.Domain.Contains("claude.ai") || c.Domain.Contains("anthropic.com"))
             .Select(c => new CookieEntry { Name = c.Name, Value = c.Value, Domain = c.Domain, Path = c.Path })
             .ToList();
         AppSettings.Default.CookieStore = JsonSerializer.Serialize(entries);
