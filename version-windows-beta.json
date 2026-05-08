@@ -1,5 +1,5 @@
 {
-  "version": "0.0.1-beta.27",
-  "url": "https://github.com/superdooper86/claudechecker/releases/download/win-v0.0.1-beta.27/ClaudeChecker-Windows.zip",
-  "notes": "## What's new in beta.27\r\n\r\n- Fix build error: use WebMessageAsJson (not WebMessageAsString) and post plain JS objects via postMessage"
+  "version": "0.0.1-beta.28",
+  "url": "https://github.com/superdooper86/claudechecker/releases/download/win-v0.0.1-beta.28/ClaudeChecker-Windows.zip",
+  "notes": "## What's new in beta.28\r\n\r\n- Debug banner now appears on the main panel after sign-in showing raw bootstrap data — paste this here so we can fix org ID parsing\r\n- Fix: limits no longer wiped when a refresh cycle returns no data (placeholders stay until real data arrives)\r\n- Try account.uuid as org ID fallback when no org found in bootstrap"
 }
