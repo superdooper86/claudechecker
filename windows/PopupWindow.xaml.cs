@@ -124,24 +124,51 @@ public partial class PopupWindow : Window
             BorderThickness = new Thickness(0),
         };
 
-        var timeStack = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
-        timeStack.Children.Add(new TextBlock { Text = "⏱ ", FontSize = 10, Foreground = secondary, VerticalAlignment = VerticalAlignment.Center });
-        timeStack.Children.Add(new TextBlock { Text = limit.TimeRemaining, FontSize = 12,
+        // Left side of time row: "⏱ Xh Ym   Resets D MMM YYYY at HH:mm"
+        var timeLeft = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+        timeLeft.Children.Add(new TextBlock { Text = "⏱ ", FontSize = 10, Foreground = secondary, VerticalAlignment = VerticalAlignment.Center });
+        timeLeft.Children.Add(new TextBlock { Text = limit.TimeRemaining, FontSize = 12,
             FontWeight = FontWeights.Medium, Foreground = text, VerticalAlignment = VerticalAlignment.Center });
-
-        var resetText = new TextBlock
+        timeLeft.Children.Add(new TextBlock
         {
-            Text = $"Resets {limit.ResetDate:d MMM yyyy} at {limit.ResetDate:HH:mm}",
-            FontSize = 11, Foreground = secondary, VerticalAlignment = VerticalAlignment.Center
-        };
+            Text = $"   Resets {limit.ResetDate:d MMM yyyy} at {limit.ResetDate:HH:mm}",
+            FontSize = 10, Foreground = secondary, VerticalAlignment = VerticalAlignment.Center
+        });
+
+        // Right side: "after reset" when 0%, "today HH:MM" when refreshed today
+        string? refreshLabel = limit.UsedPercent == 0
+            ? "after reset"
+            : VM.LastUpdated?.Date == DateTime.Today
+                ? "today " + VM.LastUpdated.Value.ToString("h:mm tt")
+                : null;
+
+        UIElement timeRight;
+        if (refreshLabel != null)
+        {
+            var inner = new StackPanel { Orientation = Orientation.Horizontal };
+            inner.Children.Add(new TextBlock { Text = "↗ ", FontSize = 10, Foreground = secondary, VerticalAlignment = VerticalAlignment.Center });
+            inner.Children.Add(new TextBlock { Text = refreshLabel, FontSize = 10, FontWeight = FontWeights.Medium,
+                Foreground = secondary, VerticalAlignment = VerticalAlignment.Center });
+            timeRight = new Border
+            {
+                Background   = new SolidColorBrush(Color.FromArgb(18, 0, 0, 0)),
+                CornerRadius = new CornerRadius(4),
+                Padding      = new Thickness(6, 2, 6, 2),
+                Child        = inner
+            };
+        }
+        else
+        {
+            timeRight = new TextBlock(); // empty placeholder
+        }
 
         var timeRow = new Grid();
         timeRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         timeRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        Grid.SetColumn(timeStack, 0);
-        Grid.SetColumn(resetText, 1);
-        timeRow.Children.Add(timeStack);
-        timeRow.Children.Add(resetText);
+        Grid.SetColumn(timeLeft,  0);
+        Grid.SetColumn(timeRight, 1);
+        timeRow.Children.Add(timeLeft);
+        timeRow.Children.Add(timeRight);
 
         var sparkline = new SparklineControl
         {
@@ -247,13 +274,11 @@ public partial class PopupWindow : Window
         var prepaid  = VM.Prepaid;
         var currency = VM.ExtraUsage?.Currency ?? overage?.Currency ?? "$";
 
-        // Fall back to extra_usage fields when the overage/prepaid endpoints return nothing.
-        // extra_usage.used_credits is in cents (e.g. 5231 = EUR 52.31); overage endpoint
-        // already returns the value in currency units, so only divide for the fallback path.
-        var spent   = overage?.UsedCredits        ?? (VM.ExtraUsage?.UsedCredits  / 100.0) ?? 0;
-        var limit   = overage?.MonthlyCreditLimit ?? VM.ExtraUsage?.MonthlyLimit ?? 0;
-        var balance = prepaid?.Amount             ?? 0;
-        // Show "Unlimited" when no limit is configured (null monthly_limit)
+        // All credit values from the API are in cents — divide by 100.
+        var spent   = (overage?.UsedCredits        / 100.0) ?? (VM.ExtraUsage?.UsedCredits  / 100.0) ?? 0;
+        var limit   = (overage?.MonthlyCreditLimit / 100.0) ?? (VM.ExtraUsage?.MonthlyLimit / 100.0) ?? 0;
+        var balance = (prepaid?.Amount             / 100.0) ?? 0;
+
         bool unlimited = overage?.MonthlyCreditLimit == null && VM.ExtraUsage?.MonthlyLimit == null;
 
         UIElement MakeRow(string label, string value, bool highlight = false)
@@ -273,9 +298,9 @@ public partial class PopupWindow : Window
 
         var contentPanel = new StackPanel { Margin = new Thickness(12, 10, 12, 10) };
         contentPanel.Children.Add(MakeRow("Spent",   $"{currency} {spent:F2}", spent > 0));
-        if (unlimited)    contentPanel.Children.Add(MakeRow("Limit",   "Unlimited"));
-        else if (limit > 0) contentPanel.Children.Add(MakeRow("Limit", $"{currency} {limit:F2}"));
-        if (balance > 0)  contentPanel.Children.Add(MakeRow("Balance", $"{currency} {balance:F2}"));
+        if (unlimited)      contentPanel.Children.Add(MakeRow("Limit",   "Unlimited"));
+        else if (limit > 0) contentPanel.Children.Add(MakeRow("Limit",   $"{currency} {limit:F2}"));
+        if (balance > 0)    contentPanel.Children.Add(MakeRow("Balance", $"{currency} {balance:F2}"));
 
         if (limit > 0)
         {
@@ -467,12 +492,10 @@ public partial class PopupWindow : Window
         var login = new LoginWindow { Owner = this };
         if (login.ShowDialog() == true)
         {
-            // Show cached data from SaveAndClose immediately (no WebView2 needed)
             await VM.LoadFromCacheAsync();
             InitSettings();
             ShowMain();
 
-            // Full refresh in background after WebView2 folder is definitely released
             _ = Task.Run(async () =>
             {
                 await Task.Delay(3000);
