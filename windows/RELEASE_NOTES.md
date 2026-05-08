@@ -1,4 +1,4 @@
-## What's new in beta.32
+## What's new in beta.33
 
-- Fix: usage response fields were completely wrong — five_hour/seven_day not claude_ai_default_5h/claude_ai_default (this is why limits never loaded)
-- Fix: placeholder cards shown while data loads instead of blank panel
+- Fix: gauge percentage text is now vertically centered within the dial
+- Remove: debug banner no longer appears on the main panel
