@@ -1,5 +1,5 @@
 {
-  "version": "1.1.3-beta.2",
-  "url": "https://github.com/superdooper86/claudechecker/releases/download/v1.1.3-beta.2/ClaudeChecker.zip",
-  "notes": "## What's new in v1.1.3\n\n### UI polish\n- Limit headers now read \"5 Hour Limit\" and \"7 Day Limit\" instead of \"5hr\"\n- Tapping anywhere on the blue update banner now opens the update window (not just the Update button)"
+  "version": "1.1.3-beta.3",
+  "url": "https://github.com/superdooper86/claudechecker/releases/download/v1.1.3-beta.3/ClaudeChecker.zip",
+  "notes": "## What's new in v1.1.3\n\n### UI polish\n- Limit headers now read \"5 Hour Limit\" and \"7 Day Limit\" instead of \"5hr\"\n- Tapping anywhere on the blue update banner now opens the update window\n\n### Session Diary fix\n- Burn history is now persisted across app launches — the sparkline populates immediately on first open instead of requiring a manual refresh"
 }
