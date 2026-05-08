@@ -51,7 +51,7 @@ struct ContentView: View {
                                     ForEach(vm.limits) { limit in
                                         VStack(spacing: 0) {
                                             HStack {
-                                                Text(limit.window == .fiveHour ? "5hr Limit" : "7 Day Limit")
+                                                Text(limit.window == .fiveHour ? "5 Hour Limit" : "7 Day Limit")
                                                     .font(.system(size: 11, weight: .semibold))
                                                     .foregroundColor(.secondary)
                                                     .textCase(.uppercase)
@@ -1051,6 +1051,7 @@ struct UpdateBanner: View {
         .padding(.vertical, 10)
         .background(Color.blue.opacity(0.08))
         .overlay(Divider(), alignment: .bottom)
+        .onTapGesture { showSheet = true }
     }
 }
 
@@ -1168,3 +1169,4 @@ struct UpdateSheet: View {
         .frame(width: 380)
     }
 }
+
