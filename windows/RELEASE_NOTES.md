@@ -1,3 +1,4 @@
-## What's new in beta.25
+## What's new in beta.26
 
-- Debug: Settings panel now shows bootstrap diagnostic info after sign-in (helps diagnose missing data)
+- Fixed: script results now use window.chrome.webview.postMessage instead of async IIFE return value — older WebView2 runtimes don't await Promises from ExecuteScriptAsync, so data was never received
+- Debug text in Settings will now always show what happened during sign-in
