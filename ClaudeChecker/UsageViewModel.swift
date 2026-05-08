@@ -195,13 +195,14 @@ class UsageViewModel: ObservableObject {
         req.setValue("application/json", forHTTPHeaderField: "accept")
         if let cookie = await claudeCookieHeader() { req.setValue(cookie, forHTTPHeaderField: "Cookie") }
         let (data, response) = try await URLSession.shared.data(for: req)
-        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { return nil }
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { return (nil, nil) }
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let account = json["account"] as? [String: Any] else { return (nil, nil) }
         let email = account["email_address"] as? String
         var planLabel: String? = nil
         if let memberships = account["memberships"] as? [[String: Any]],
-           let caps = memberships.first?["organization"]?["capabilities"] as? [String],
+           let org = memberships.first?["organization"] as? [String: Any],
+           let caps = org["capabilities"] as? [String],
            let cap = caps.first(where: { $0.hasPrefix("claude_") }) {
             let name = String(cap.dropFirst("claude_".count))
             planLabel = name.prefix(1).uppercased() + name.dropFirst().lowercased()
