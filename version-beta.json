@@ -1,5 +1,5 @@
 {
-  "version": "1.1.4-beta.1",
-  "url": "https://github.com/superdooper86/claudechecker/releases/download/v1.1.4-beta.1/ClaudeChecker.zip",
-  "notes": "## What's new in v1.1.4-beta.1\n\n### Bug fix\n- Org ID is now fetched dynamically from the bootstrap API instead of being hardcoded — the app now works for all users, not just the developer's account"
+  "version": "1.1.4-beta.2",
+  "url": "https://github.com/superdooper86/claudechecker/releases/download/v1.1.4-beta.2/ClaudeChecker.zip",
+  "notes": "## What's new in v1.1.4-beta.2\n\n### Improvements\n- Plan name (e.g. Pro, Max) is now read from the API instead of being hardcoded"
 }
