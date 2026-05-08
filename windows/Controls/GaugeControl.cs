@@ -32,7 +32,7 @@ public class GaugeControl : FrameworkElement
         var radius = Math.Min(cx, cy) - StrokeWidth / 2 - 1;
 
         DrawArc(dc, cx, cy, radius, StartAngleDeg, SweepDeg,
-            new Pen(new SolidColorBrush(Color.FromArgb(28, 255, 255, 255)), StrokeWidth));
+            new Pen(new SolidColorBrush(Color.FromArgb(30, 0, 0, 0)), StrokeWidth));
 
         if (Percent > 0)
             DrawArc(dc, cx, cy, radius, StartAngleDeg, SweepDeg * (Percent / 100.0),
@@ -44,14 +44,14 @@ public class GaugeControl : FrameworkElement
             $"{(int)Math.Round(Percent)}%",
             CultureInfo.CurrentCulture, FlowDirection.LeftToRight,
             new Typeface(new FontFamily("Segoe UI"), FontStyles.Normal, FontWeights.Bold, FontStretches.Normal),
-            14, Brushes.White, dpi);
+            14, new SolidColorBrush(Color.FromRgb(0x1C, 0x1C, 0x1C)), dpi);
         dc.DrawText(pctText, new Point(cx - pctText.Width / 2, cy - pctText.Height - 1));
 
         var sub = new FormattedText(
             "Updated\nnow",
             CultureInfo.CurrentCulture, FlowDirection.LeftToRight,
             new Typeface("Segoe UI"), 7,
-            new SolidColorBrush(Color.FromRgb(0x88, 0x88, 0x88)), dpi)
+            new SolidColorBrush(Color.FromRgb(0x9E, 0x9E, 0x9E)), dpi)
         {
             TextAlignment = TextAlignment.Center
         };
