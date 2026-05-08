@@ -5,4 +5,7 @@
 - Tapping anywhere on the blue update banner now opens the update window
 
 ### Session Diary fix
-- Burn history is now persisted across app launches — the sparkline populates immediately on first open instead of requiring a manual refresh
+- Burn history is now persisted across app launches — the sparkline populates immediately on first open
+
+### Window sizing fix
+- The popover now resizes correctly when switching between the main view and settings — no more empty space below the main view
