@@ -82,10 +82,9 @@ public partial class LoginWindow : Window
             const string script = @"(async()=>{try{
                 const h={headers:{accept:'application/json'}};
                 const b=await(await fetch('/api/bootstrap',h)).json();
-                const bkeys=Object.keys(b||{}).join(',');
-                const akeys=Object.keys(b?.account||{}).join(',');
+                const rawB=JSON.stringify(b).slice(0,600);
                 let id=b?.memberships?.[0]?.organization?.uuid||b?.organizations?.[0]?.uuid
-                        ||b?.default_organization?.uuid||null;
+                        ||b?.default_organization?.uuid||b?.account?.uuid||null;
                 const e=b?.account?.email_address||b?.account?.email||b?.email||null;
                 let orgSrc='bootstrap';
                 if(!id){
@@ -95,11 +94,12 @@ public partial class LoginWindow : Window
                 if(!id){
                     let pu=null;
                     try{pu=await(await fetch('/api/usage',h)).json();}catch(e3){}
-                    window.chrome.webview.postMessage({email:e,orgId:null,usage:(pu&&!pu.error?pu:null),debug:'no-org|bkeys:'+bkeys+'|akeys:'+akeys});
+                    window.chrome.webview.postMessage({email:e,orgId:null,usage:(pu&&!pu.error?pu:null),debug:'no-org|raw:'+rawB});
                     return;
                 }
                 const u=await(await fetch('/api/organizations/'+id+'/usage',h)).json();
-                window.chrome.webview.postMessage({email:e,orgId:id,usage:u,debug:'orgSrc:'+orgSrc+'|bkeys:'+bkeys+'|akeys:'+akeys});
+                const rawU=JSON.stringify(u).slice(0,300);
+                window.chrome.webview.postMessage({email:e,orgId:id,usage:u,debug:'src:'+orgSrc+'|ukeys:'+Object.keys(u||{}).join(',')+'|raw:'+rawB});
             }catch(ex){window.chrome.webview.postMessage({error:String(ex)});}})()";
 
             await Browser.CoreWebView2.ExecuteScriptAsync(script);
