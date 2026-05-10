@@ -12,7 +12,7 @@ struct LoginWebView: NSViewRepresentable {
 
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.navigationDelegate = context.coordinator
-        webView.load(URLRequest(url: URL(string: "https://claude.ai/login")!))
+        webView.load(URLRequest(url: URL(string: "https://claude.ai")!))
         return webView
     }
 
