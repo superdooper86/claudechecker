@@ -38,6 +38,16 @@ class UsageViewModel: ObservableObject {
             burnHistoryStore = saved
         }
         loadPlaceholderData()
+        Task { await checkInitialSignInState() }
+    }
+
+    private func checkInitialSignInState() async {
+        let cookies = await WKWebsiteDataStore.default().httpCookieStore.allCookies()
+        let hasSession = cookies.contains {
+            $0.domain.contains("claude.ai") &&
+            ($0.name == "sessionKey" || $0.name == "__Secure-next-auth.session-token")
+        }
+        if hasSession { isSignedIn = true }
     }
 
     func signOut() async {
@@ -140,10 +150,21 @@ class UsageViewModel: ObservableObject {
         let memberships = (account?["memberships"] ?? json["memberships"]) as? [[String: Any]]
         let firstOrg = memberships?.first?["organization"] as? [String: Any]
 
-        // org ID — primary path then flat-list fallback
+        // org ID — primary path then flat-list fallback then dedicated endpoint
         var orgId: String? = firstOrg?["uuid"] as? String
         if orgId == nil {
             orgId = (json["organizations"] as? [[String: Any]])?.first?["uuid"] as? String
+        }
+        if orgId == nil, let cookie = await claudeCookieHeader() {
+            // Final fallback: fetch /api/organizations directly
+            var orgsReq = URLRequest(url: URL(string: "https://claude.ai/api/organizations")!)
+            orgsReq.setValue("application/json", forHTTPHeaderField: "accept")
+            orgsReq.setValue(cookie, forHTTPHeaderField: "Cookie")
+            if let (orgsData, orgsResp) = try? await URLSession.shared.data(for: orgsReq),
+               let orgsHttp = orgsResp as? HTTPURLResponse, orgsHttp.statusCode == 200,
+               let orgs = try? JSONSerialization.jsonObject(with: orgsData) as? [[String: Any]] {
+                orgId = orgs.first?["uuid"] as? String
+            }
         }
 
         let email = account?["email_address"] as? String
