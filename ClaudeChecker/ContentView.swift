@@ -911,12 +911,12 @@ struct ErrorBanner: View {
 struct EmptyStateView: View {
     var body: some View {
         VStack(spacing: 10) {
-            Image(systemName: "key.slash")
+            Image(systemName: "person.crop.circle.badge.questionmark")
                 .font(.system(size: 28))
                 .foregroundColor(.secondary)
-            Text("No API key configured")
+            Text("Not signed in")
                 .font(.system(size: 13, weight: .medium))
-            Text("Open Settings to add your Anthropic API key.")
+            Text("Sign in to claude.ai to see your usage.")
                 .font(.system(size: 11.5))
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
