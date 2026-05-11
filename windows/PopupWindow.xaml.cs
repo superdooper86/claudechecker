@@ -570,13 +570,7 @@ public partial class PopupWindow : Window
             reqRows.Add(MakeRow("Time", VM.DiagLastFetch.Value.ToString("HH:mm:ss")));
         AddSection("LAST REQUEST", reqRows);
 
-        // COOKIE STORE
-        AddSection("COOKIE STORE",
         [
-            MakeRow("Total cookies",  VM.DiagCookieCount.ToString()),
-            MakeRow("Claude cookies", VM.DiagClaudeCookieCount.ToString()),
-            MakeRow("All domains",    VM.DiagCookieDomains.Count == 0
-                ? "(none)" : string.Join(", ", VM.DiagCookieDomains)),
         ]);
 
         // STORED COOKIE NAMES
@@ -637,9 +631,6 @@ public partial class PopupWindow : Window
         if (VM.DiagLastFetch.HasValue)
             sb.AppendLine($"Last fetch: {VM.DiagLastFetch.Value:HH:mm:ss}");
         sb.AppendLine();
-        sb.AppendLine($"Total cookies: {VM.DiagCookieCount}");
-        sb.AppendLine($"Claude cookies: {VM.DiagClaudeCookieCount}");
-        sb.AppendLine($"Domains: {string.Join(", ", VM.DiagCookieDomains)}");
         sb.AppendLine();
         sb.AppendLine("Stored cookies:");
         foreach (var c in storedNames)
