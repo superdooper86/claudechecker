@@ -282,6 +282,9 @@
                                 Style="{StaticResource SmallButton}" Click="CopyDiag_Click"/>
                     </Grid>
                 </Border>
+                <TextBlock DockPanel.Dock="Top" Text="Email and org IDs are redacted when copied."
+                           FontSize="10" Foreground="{DynamicResource SecondaryBrush}"
+                           Margin="14,6,14,6"/>
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel x:Name="DiagContentPanel" Margin="16,4,16,16"/>
                 </ScrollViewer>
