@@ -151,7 +151,7 @@ struct DiagnosticsView: View {
         lines.append("")
         lines.append("Last path: \(vm.diagLastPath)")
         lines.append("Last status: \(vm.diagLastStatus)")
-        lines.append("Last error: \(vm.diagLastError)")
+        lines.append("Last error: \(vm.diagLastError.isEmpty ? \"(none)\" : vm.diagLastError)")
         if let t = vm.diagLastFetch {
             lines.append("Time: \(t.formatted(date: .omitted, time: .standard))")
         }
