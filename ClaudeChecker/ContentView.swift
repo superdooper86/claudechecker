@@ -584,6 +584,7 @@ struct SettingsView: View {
     @Binding var showSettings: Bool
     @Binding var showUpdateSheet: Bool
     @State private var checkingForUpdates = false
+    @State private var showDiagnostics = false
 
     let refreshOptions: [(label: String, seconds: TimeInterval)] = [
         ("1 min",  60),
@@ -767,6 +768,23 @@ struct SettingsView: View {
             }
 
             Spacer()
+
+            Divider()
+
+            // Diagnostics
+            HStack {
+                Label("Diagnostics", systemImage: "stethoscope")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.secondary)
+                Spacer()
+                Button("Open") { showDiagnostics = true }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+            }
+            .sheet(isPresented: $showDiagnostics) {
+                DiagnosticsView(isPresented: $showDiagnostics)
+                    .environmentObject(vm)
+            }
 
             Divider()
 
