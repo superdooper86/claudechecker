@@ -33,7 +33,7 @@ Source: "publish\Assets\*"; DestDir: "{app}\Assets"; Flags: ignoreversion recurs
 
 [Icons]
 Name: "{group}\ClaudeChecker"; Filename: "{app}\ClaudeChecker.exe"
-Name: "{commondesktop}\ClaudeChecker"; Filename: "{app}\ClaudeChecker.exe"; Tasks: desktopicon
+Name: "{userdesktop}\ClaudeChecker"; Filename: "{app}\ClaudeChecker.exe"; Tasks: desktopicon
 
 [Run]
 ; Silent install (auto-update): launch automatically
