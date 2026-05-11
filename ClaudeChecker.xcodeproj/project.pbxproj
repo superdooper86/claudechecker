@@ -10,6 +10,13 @@
 	<string>77</string>
 	<key>objects</key>
 	<dict>
+		<key>AAAAAA009</key>
+		<dict>
+			<key>isa</key>
+			<string>PBXBuildFile</string>
+			<key>fileRef</key>
+			<string>AAAAAA109</string>
+		</dict>
 		<key>AAAAAA007</key>
 		<dict>
 			<key>isa</key>
@@ -85,6 +92,17 @@
 			<string>sourcecode.swift</string>
 			<key>path</key>
 			<string>UpdateNotificationWindow.swift</string>
+			<key>sourceTree</key>
+			<string>&lt;group&gt;</string>
+		</dict>
+		<key>AAAAAA109</key>
+		<dict>
+			<key>isa</key>
+			<string>PBXFileReference</string>
+			<key>lastKnownFileType</key>
+			<string>sourcecode.swift</string>
+			<key>path</key>
+			<string>DiagnosticsView.swift</string>
 			<key>sourceTree</key>
 			<string>&lt;group&gt;</string>
 		</dict>
@@ -179,6 +197,7 @@
 				<string>AAAAAA106</string>
 				<string>AAAAAA107</string>
 				<string>AAAAAA108</string>
+				<string>AAAAAA109</string>
 			</array>
 			<key>path</key>
 			<string>ClaudeChecker</string>
@@ -292,6 +311,7 @@
 				<string>AAAAAA005</string>
 				<string>AAAAAA007</string>
 				<string>AAAAAA008</string>
+				<string>AAAAAA009</string>
 			</array>
 			<key>runOnlyForDeploymentPostprocessing</key>
 			<string>0</string>
