@@ -248,7 +248,7 @@ class UsageViewModel: ObservableObject {
                 }
             }
 
-            let (fetchedOrgId, fetchedEmail, fetchedPlan) = try await fetchBootstrap()
+            let (fetchedOrgId, fetchedEmail, fetchedPlan) = try await fetchBootstrap(preferredOrgId: cookieOrgId)
 
             let orgId: String
             if let id = cookieOrgId ?? fetchedOrgId {
@@ -306,7 +306,7 @@ class UsageViewModel: ObservableObject {
 
     // MARK: - Bootstrap
 
-    private func fetchBootstrap() async throws -> (orgId: String?, email: String?, planLabel: String?) {
+    private func fetchBootstrap(preferredOrgId: String? = nil) async throws -> (orgId: String?, email: String?, planLabel: String?) {
         let (status, body) = try await apiFetch("/api/bootstrap")
         if status == 401 || status == 403 {
             throw AppError.detail("HTTP \(status) — \(body.prefix(120))")
@@ -323,7 +323,8 @@ class UsageViewModel: ObservableObject {
 
         let account  = json["account"] as? [String: Any]
         let memberships = (account?["memberships"] ?? json["memberships"]) as? [[String: Any]]
-        let firstOrg = memberships?.first?["organization"] as? [String: Any]
+        let allOrgs = memberships?.compactMap { $0["organization"] as? [String: Any] } ?? []
+        let firstOrg = allOrgs.first
 
         var orgId: String? = firstOrg?["uuid"] as? String
         if orgId == nil {
@@ -340,8 +341,10 @@ class UsageViewModel: ObservableObject {
 
         let email = account?["email_address"] as? String
 
+        // Read capabilities from the preferred (active) org, falling back to first org.
+        let capOrg = preferredOrgId.flatMap { id in allOrgs.first(where: { $0["uuid"] as? String == id }) } ?? firstOrg
         var planLabel: String? = nil
-        if let caps = firstOrg?["capabilities"] as? [String],
+        if let caps = capOrg?["capabilities"] as? [String],
            let cap = caps.first(where: { $0.hasPrefix("claude_") }) {
             let name = String(cap.dropFirst("claude_".count))
             planLabel = name.prefix(1).uppercased() + name.dropFirst().lowercased()
