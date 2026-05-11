@@ -1,23 +1,18 @@
-## What's new in beta.49
+## What's new in beta.62
 
-### Architecture
-- All data (usage, plan, overage, prepaid credits) now fetched via the persistent background WebView2 — the same always-live session as the macOS app, so Cloudflare cookies never expire between refreshes
-- HttpClient path kept only as a brief startup fallback before the browser is ready
-- Settings file simplified: only stores session signal, burn history, and user preferences — no more cached API responses
+### Installer
+- App now ships as a proper Windows installer (no more zip extract)
+- Installs to user AppData — no admin rights required
+- Auto-update now downloads and silently runs the new installer, then relaunches
+- Desktop shortcut creation is optional during install
 
 ### Bug fixes
-- Plan label (e.g. "Pro") now updates on every refresh, not just at login
-- Extra Usage Credits values now correct (were 100× too large)
-- Limit and balance now update live on every refresh
-- Refresh interval dropdown now shows "1 min", "2 min" etc. correctly
-- ComboBox no longer flashes bright blue when clicked
-- Buttons now show a visible pressed state
-- Footer "Updated X ago" counter now ticks every second; shows "X min, Y sec ago" past 60 s
-- Removed stray sparkline bars from the 5 h and 7 d limit cards
-- App window now shown on launch
+- Fixed app crash on launch (startup DllNotFoundException caused by single-file publish; all DLLs now installed alongside the exe)
+- Fixed clicking Copy in Diagnostics crashing the app (CLIPBRD_E_CANT_OPEN)
+- Fixed Sign In — Done button now always clickable; session detection no longer depends on specific cookie names that may have changed
 
-### UI improvements
-- Gauge percentage larger, "used" label removed
-- Each limit card now shows an "after reset" or "today HH:MM" badge
-- Session Diary card redesigned to match macOS layout (stats row + sparkline, no Claude header)
-- Reset date moved inline with time remaining
+### Diagnostics
+- Org IDs are now redacted when copying diagnostics text
+- Removed stale Cookie Store section (always showed 0)
+- Fixed missing fields in copied diagnostics output
+- Privacy note added below diagnostics header
