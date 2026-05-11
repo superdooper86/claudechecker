@@ -1,13 +1,10 @@
 ## What's new in v1.2.1
 
 ### Bug fixes
-- Fixed a timing race in the background API WebView — `refresh()` now correctly waits for the WebView to finish loading before making API calls, preventing silent failures on startup
-- Fixed usage data not loading after sign-in — API calls now run inside a persistent background WebView using the page's own fetch(), so all credentials (cookies, httpOnly tokens, etc.) are included automatically
-- Fixed "Not signed in" showing after login — the background WebView is now reloaded after sign-in to pick up the new session before the first data refresh
-- Fixed "Not signed in" showing incorrectly on launch when the session was already active
-- Sign-in state is now detected immediately from stored cookies on startup, before the first data refresh completes
-- Fixed login window auto-closing before the user could sign in — the login window now correctly loads the `/login` page so it only detects auth after the actual sign-in redirect
-- Fixed "No API key configured" showing after signing out — now correctly shows "Not signed in" with a prompt to sign in
-- Added `/api/organizations` as a final fallback for org ID resolution when the bootstrap API response doesn't include it
-- Fixed Settings incorrectly showing "Signed in" after a failed refresh — sign-in state now resets when authentication fails
-- Rewrote login detection to use KVO on the WebView URL — correctly detects auth for Next.js SPA navigation (history.pushState) that doesn't trigger didFinish
+- Fixed the root cause of "Not signed in" errors: URLSession was silently discarding the manually-set Cookie header because `httpShouldHandleCookies` defaults to `true`, which makes URLSession replace it with its own (empty) HTTPCookieStorage — claude.ai session cookies live in WKWebsiteDataStore, not HTTPCookieStorage. Setting `httpShouldHandleCookies = false` ensures the cookies are actually sent.
+- Added browser-like request headers (User-Agent, Origin, Referer) matching what Claude's API expects, consistent with the working Windows implementation
+- Removed background WKWebView complexity added in beta.12–13 — reverted to simple URLSession approach with correct cookie handling
+- Fixed login window auto-closing before the user could sign in — login window loads `/login` so auth is only detected after the actual sign-in redirect
+- Fixed login detection for Next.js SPA navigation using KVO on WebView URL (history.pushState doesn't trigger didFinish)
+- Added `/api/organizations` as a final fallback for org ID resolution
+- Fixed Settings incorrectly showing "Signed in" after a failed refresh
