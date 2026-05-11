@@ -12,6 +12,12 @@ struct LoginWebView: NSViewRepresentable {
 
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.navigationDelegate = context.coordinator
+
+        // KVO on url catches SPA pushState navigations that don't fire didFinish
+        context.coordinator.urlObservation = webView.observe(\.url, options: [.new]) { [weak coordinator = context.coordinator] wv, _ in
+            coordinator?.checkCurrentURL(wv.url?.absoluteString)
+        }
+
         webView.load(URLRequest(url: URL(string: "https://claude.ai/login")!))
         return webView
     }
@@ -25,21 +31,24 @@ struct LoginWebView: NSViewRepresentable {
     class Coordinator: NSObject, WKNavigationDelegate {
         let onAuthenticated: () -> Void
         var didAuthenticate = false
+        var urlObservation: NSKeyValueObservation?
 
         init(onAuthenticated: @escaping () -> Void) {
             self.onAuthenticated = onAuthenticated
         }
 
-        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-            guard !didAuthenticate else { return }
-            guard let url = webView.url?.absoluteString else { return }
-            // Stay on login/auth pages — user hasn't completed sign-in yet
+        func checkCurrentURL(_ url: String?) {
+            guard !didAuthenticate, let url else { return }
             if url.contains("/login") || url.contains("/auth") { return }
-            // Navigated away from login — server redirected us, so sign-in completed
             didAuthenticate = true
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                 self.onAuthenticated()
             }
+        }
+
+        // Covers full cross-document navigations
+        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+            checkCurrentURL(webView.url?.absoluteString)
         }
     }
 }
