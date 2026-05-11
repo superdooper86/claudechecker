@@ -24,7 +24,7 @@ struct DiagnosticsView: View {
                 .buttonStyle(.bordered)
                 .controlSize(.small)
                 if copied {
-                    Text("Copied!")
+                    Text("Copied! (IDs redacted)")
                         .font(.system(size: 11))
                         .foregroundColor(.green)
                 }
@@ -46,7 +46,8 @@ struct DiagnosticsView: View {
                         DiagRow("Version", Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?")
                         DiagRow("Build",   Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?")
                         DiagRow("Signed in", vm.isSignedIn ? "Yes" : "No")
-                        DiagRow("Email",   vm.userEmail.isEmpty ? "(none)" : vm.userEmail)
+                        DiagRow("Org ID",  UserDefaults.standard.string(forKey: "claude_org_id") ?? "(none)")
+                        DiagRow("lastActiveOrg", vm.diagLastActiveOrg.isEmpty ? "(not read)" : vm.diagLastActiveOrg)
                         DiagRow("Error",   vm.errorMessage ?? "(none)")
                     }
 
@@ -161,7 +162,14 @@ struct DiagnosticsView: View {
         for c in liveAllCookies {
             lines.append("  \(c.domain)  \(c.name)  httpOnly=\(c.isHTTPOnly)  secure=\(c.isSecure)")
         }
-        return lines.joined(separator: "\n")
+        return redactUUIDs(lines.joined(separator: "\n"))
+    }
+
+    private func redactUUIDs(_ text: String) -> String {
+        let pattern = "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return text }
+        let range = NSRange(text.startIndex..., in: text)
+        return regex.stringByReplacingMatches(in: text, range: range, withTemplate: "****")
     }
 }
 
