@@ -58,7 +58,7 @@ jobs:
         run: |
           shields_version=$(echo "${{ steps.version.outputs.version }}" | sed 's/-/--/g')
           tag="${{ github.ref_name }}"
-          export BADGE="[![Beta](https://img.shields.io/badge/beta-${shields_version}-orange?style=flat)](https://github.com/${{ github.repository }}/releases/tag/${tag}) <!-- BETA_BADGE -->"
+          export BADGE="[![macOS Beta](https://img.shields.io/badge/macOS_Beta-${shields_version}-orange?style=flat)](https://github.com/${{ github.repository }}/releases/tag/${tag}) <!-- BETA_BADGE -->"
           python3 -c "
           import os
           badge = os.environ['BADGE']
