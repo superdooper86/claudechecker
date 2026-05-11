@@ -570,9 +570,6 @@ public partial class PopupWindow : Window
             reqRows.Add(MakeRow("Time", VM.DiagLastFetch.Value.ToString("HH:mm:ss")));
         AddSection("LAST REQUEST", reqRows);
 
-        [
-        ]);
-
         // STORED COOKIE NAMES
         var storedNames = GetStoredCookieNames();
         var nameRows = new List<FrameworkElement>();
