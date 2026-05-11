@@ -30,12 +30,6 @@ class UsageViewModel: ObservableObject {
     private var previousPercents: [String: Double] = [:]
     private var firedThresholds: [String: Set<Int>] = [:]
 
-    // Background WKWebView for API calls via WebKit navigation.
-    // Hosted in a hidden NSWindow to keep the WebKit process active.
-    private var apiWebView: WKWebView?
-    private var apiWindow: NSWindow?
-    private var currentFetchDelegate: APIFetchDelegate?
-
     init() {
         let saved = UserDefaults.standard.double(forKey: "refresh_interval")
         refreshInterval = saved > 0 ? saved : 60
@@ -44,54 +38,50 @@ class UsageViewModel: ObservableObject {
             burnHistoryStore = saved
         }
         loadPlaceholderData()
-        setupAPIWebView()
         Task { await checkInitialSignInState() }
     }
 
-    // MARK: - Background API WebView
-
-    private func setupAPIWebView() {
-        let config = WKWebViewConfiguration()
-        config.websiteDataStore = WKWebsiteDataStore.default()
-        let wv = WKWebView(frame: NSRect(x: 0, y: 0, width: 1, height: 1), configuration: config)
-        apiWebView = wv
-
-        // Hosting in a 1×1 transparent window keeps the WebKit process active.
-        let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 1, height: 1),
-            styleMask: .borderless,
-            backing: .buffered,
-            defer: false)
-        window.alphaValue = 0.0
-        window.ignoresMouseEvents = true
-        window.isReleasedWhenClosed = false
-        window.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
-        window.contentView?.addSubview(wv)
-        window.orderFrontRegardless()
-        apiWindow = window
-    }
-
-    // Called after login: adopt the login WebView (proven authenticated) and refresh.
+    // Called after login: cookies are already in WKWebsiteDataStore.default() —
+    // brief sleep lets the store commit, then refresh uses URLSession.
     func adoptAndRefresh(_ loginWebView: WKWebView) async {
-        loginWebView.removeFromSuperview()
-        loginWebView.frame = NSRect(x: 0, y: 0, width: 1, height: 1)
-        apiWindow?.contentView?.addSubview(loginWebView)
-        apiWebView = loginWebView
-        try? await Task.sleep(nanoseconds: 400_000_000)
+        try? await Task.sleep(nanoseconds: 500_000_000)
         await refresh()
     }
 
-    // Fetches an API path by navigating the WebView to the URL and reading the response.
-    // Navigation lets WebKit send full browser headers and cookies automatically —
-    // more reliable than callAsyncJavaScript fetch, which bypasses SPA auth interceptors.
-    private func webViewFetch(_ path: String) async throws -> (Int, String) {
-        guard let wv = apiWebView else { throw AppError.detail("no api webview") }
-        return try await withCheckedThrowingContinuation { cont in
-            let delegate = APIFetchDelegate(continuation: cont)
-            currentFetchDelegate = delegate
-            wv.navigationDelegate = delegate
-            wv.load(URLRequest(url: URL(string: "https://claude.ai\(path)")!))
+    // Fetches an API path via URLSession with browser-like headers.
+    // Claude.ai's API requires sec-fetch-*, Origin, Referer, and a browser User-Agent
+    // to avoid 401 — matching how the Windows version (HttpClient) handles this.
+    private func urlFetch(_ path: String) async throws -> (Int, String) {
+        let cookies = await WKWebsiteDataStore.default().httpCookieStore.allCookies()
+        let claudeCookies = cookies.filter {
+            $0.domain.contains("claude.ai") || $0.domain.contains("anthropic.com")
         }
+        guard !claudeCookies.isEmpty else { throw AppError.notAuthenticated }
+
+        var req = URLRequest(url: URL(string: "https://claude.ai\(path)")!)
+        req.httpShouldHandleCookies = false
+        if let cookieHeader = HTTPCookie.requestHeaderFields(with: claudeCookies)["Cookie"] {
+            req.setValue(cookieHeader, forHTTPHeaderField: "Cookie")
+        }
+        req.setValue("application/json", forHTTPHeaderField: "Accept")
+        req.setValue("https://claude.ai", forHTTPHeaderField: "Origin")
+        req.setValue("https://claude.ai/", forHTTPHeaderField: "Referer")
+        req.setValue("empty",       forHTTPHeaderField: "sec-fetch-dest")
+        req.setValue("cors",        forHTTPHeaderField: "sec-fetch-mode")
+        req.setValue("same-origin", forHTTPHeaderField: "sec-fetch-site")
+        req.setValue(
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            forHTTPHeaderField: "User-Agent")
+        req.setValue(
+            "\"Chromium\";v=\"124\", \"Google Chrome\";v=\"124\", \"Not-A.Brand\";v=\"99\"",
+            forHTTPHeaderField: "sec-ch-ua")
+        req.setValue("?0",      forHTTPHeaderField: "sec-ch-ua-mobile")
+        req.setValue("\"macOS\"", forHTTPHeaderField: "sec-ch-ua-platform")
+
+        let (data, response) = try await URLSession.shared.data(for: req)
+        guard let http = response as? HTTPURLResponse else { throw AppError.networkError }
+        let body = String(data: data, encoding: .utf8) ?? ""
+        return (http.statusCode, body)
     }
 
     private func checkInitialSignInState() async {
@@ -114,7 +104,6 @@ class UsageViewModel: ObservableObject {
         extraUsage = nil
         prepaidCredits = nil
         overageSpendLimit = nil
-        apiWebView?.load(URLRequest(url: URL(string: "https://claude.ai")!))
     }
 
     func refresh() async {
@@ -139,13 +128,13 @@ class UsageViewModel: ObservableObject {
             if let email = fetchedEmail { userEmail = email }
             if let plan = fetchedPlan   { planLabel = plan }
 
-            // Sequential — each call navigates the shared WebView to the next API URL.
-            let usage   = try await fetchUsage(orgId: orgId)
-            let prepaid = try? await fetchPrepaidCredits(orgId: orgId)
-            let overage = try? await fetchOverageSpendLimit(orgId: orgId)
+            async let usageFetch   = fetchUsage(orgId: orgId)
+            async let prepaidFetch = fetchPrepaidCredits(orgId: orgId)
+            async let overageFetch = fetchOverageSpendLimit(orgId: orgId)
+            let (usage, prepaid, overage) = try await (usageFetch, prepaidFetch, overageFetch)
             limits = buildLimits(from: usage)
-            extraUsage  = usage.extraUsage
-            prepaidCredits   = prepaid
+            extraUsage        = usage.extraUsage
+            prepaidCredits    = prepaid
             overageSpendLimit = overage
             lastUpdated = Date()
             isSignedIn = true
@@ -183,7 +172,7 @@ class UsageViewModel: ObservableObject {
     // MARK: - Bootstrap
 
     private func fetchBootstrap() async throws -> (orgId: String?, email: String?, planLabel: String?) {
-        let (status, body) = try await webViewFetch("/api/bootstrap")
+        let (status, body) = try await urlFetch("/api/bootstrap")
         if status == 401 || status == 403 { throw AppError.notAuthenticated }
         guard status == 200 else { throw AppError.detail("bootstrap \(status): \(body.prefix(80))") }
         // If WebKit followed a redirect to the login page we get HTML instead of JSON.
@@ -204,7 +193,7 @@ class UsageViewModel: ObservableObject {
             orgId = (json["organizations"] as? [[String: Any]])?.first?["uuid"] as? String
         }
         if orgId == nil {
-            if let (orgsStatus, orgsBody) = try? await webViewFetch("/api/organizations"),
+            if let (orgsStatus, orgsBody) = try? await urlFetch("/api/organizations"),
                orgsStatus == 200,
                let orgsData = orgsBody.data(using: .utf8),
                let orgs = try? JSONSerialization.jsonObject(with: orgsData) as? [[String: Any]] {
@@ -227,7 +216,7 @@ class UsageViewModel: ObservableObject {
     // MARK: - Fetch usage
 
     private func fetchUsage(orgId: String) async throws -> UsageResponse {
-        let (status, body) = try await webViewFetch("/api/organizations/\(orgId)/usage")
+        let (status, body) = try await urlFetch("/api/organizations/\(orgId)/usage")
         if status == 401 || status == 403 { throw AppError.notAuthenticated }
         guard status == 200 else { throw AppError.networkError }
         guard let data = body.data(using: .utf8) else { throw AppError.networkError }
@@ -235,14 +224,14 @@ class UsageViewModel: ObservableObject {
     }
 
     private func fetchPrepaidCredits(orgId: String) async throws -> PrepaidCredits? {
-        guard let (status, body) = try? await webViewFetch("/api/organizations/\(orgId)/prepaid/credits"),
+        guard let (status, body) = try? await urlFetch("/api/organizations/\(orgId)/prepaid/credits"),
               status == 200,
               let data = body.data(using: .utf8) else { return nil }
         return try? JSONDecoder().decode(PrepaidCredits.self, from: data)
     }
 
     private func fetchOverageSpendLimit(orgId: String) async throws -> OverageSpendLimit? {
-        guard let (status, body) = try? await webViewFetch("/api/organizations/\(orgId)/overage_spend_limit"),
+        guard let (status, body) = try? await urlFetch("/api/organizations/\(orgId)/overage_spend_limit"),
               status == 200,
               let data = body.data(using: .utf8) else { return nil }
         return try? JSONDecoder().decode(OverageSpendLimit.self, from: data)
@@ -361,58 +350,6 @@ class UsageViewModel: ObservableObject {
     }
 }
 
-// MARK: - API Fetch Delegate
-
-// Captures the HTTP status code and response body from a WebView navigation.
-// Used by webViewFetch to turn a navigation into an async (statusCode, body) result.
-private class APIFetchDelegate: NSObject, WKNavigationDelegate {
-    private let continuation: CheckedContinuation<(Int, String), Error>
-    private var capturedStatus = 0
-    private var finished = false
-
-    init(continuation: CheckedContinuation<(Int, String), Error>) {
-        self.continuation = continuation
-    }
-
-    private func complete(_ result: Result<(Int, String), Error>) {
-        guard !finished else { return }
-        finished = true
-        continuation.resume(with: result)
-    }
-
-    func webView(_ webView: WKWebView, decidePolicyFor response: WKNavigationResponse,
-                 decisionHandler: @escaping (WKNavigationResponsePolicy) -> Void) {
-        if let http = response.response as? HTTPURLResponse {
-            capturedStatus = http.statusCode
-        }
-        decisionHandler(.allow)
-    }
-
-    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-        let status = capturedStatus
-        // Detect auth redirect: if WebKit followed a 302 to /login, finalURL changes.
-        let finalURL = webView.url?.absoluteString ?? ""
-        if finalURL.contains("/login") || finalURL.contains("/auth") {
-            complete(.success((401, "redirected:\(finalURL)")))
-            return
-        }
-        webView.evaluateJavaScript("document.body.innerText ?? ''") { [weak self] result, error in
-            if let body = result as? String {
-                self?.complete(.success((status, body)))
-            } else {
-                self?.complete(.failure(AppError.detail("body read: \(error?.localizedDescription ?? "nil")")))
-            }
-        }
-    }
-
-    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
-        complete(.failure(AppError.detail("nav: \(error.localizedDescription.prefix(80))")))
-    }
-
-    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
-        complete(.failure(AppError.detail("prov: \(error.localizedDescription.prefix(80))")))
-    }
-}
 
 enum AppError: LocalizedError {
     case notAuthenticated
