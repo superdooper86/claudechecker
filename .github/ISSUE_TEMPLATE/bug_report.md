@@ -20,7 +20,7 @@ What you expected to happen.
 
 **Diagnostics**
 Open the app → Settings → Diagnostics, then click "Copy All" and paste the output here.
-This shows the exact error, org ID, and cookie state without exposing sensitive data.
+This shows the error, request state, and cookie info. Email and org IDs are automatically redacted when you click Copy All.
 
 **Screenshots**
 If applicable, add screenshots to help explain your problem.
