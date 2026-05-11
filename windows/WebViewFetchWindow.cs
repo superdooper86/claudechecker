@@ -129,6 +129,20 @@ public sealed class WebViewFetchWindow : Window
         return await tcs.Task;
     }
 
+    // Re-navigate to claude.ai with the current session (call after sign-in).
+    public async Task ReloadAsync()
+    {
+        if (_wv.CoreWebView2 == null) { await InitAsync(); return; }
+        _readyForScript = false;
+        var navDone = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        EventHandler<CoreWebView2NavigationCompletedEventArgs>? h = null;
+        h = (_, e) => { _wv.CoreWebView2.NavigationCompleted -= h; navDone.TrySetResult(e.IsSuccess); };
+        _wv.CoreWebView2.NavigationCompleted += h;
+        _wv.CoreWebView2.Navigate("https://claude.ai");
+        await Task.WhenAny(navDone.Task, Task.Delay(15000));
+        _readyForScript = navDone.Task.IsCompletedSuccessfully && navDone.Task.Result;
+    }
+
     // ── Shared init ───────────────────────────────────────────────────────────
 
     private int _initGuard;
