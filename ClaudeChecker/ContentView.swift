@@ -116,8 +116,8 @@ struct ContentView: View {
             showUpdateSheet = true
         }
         .sheet(isPresented: $showLogin) {
-            LoginSheetView(isPresented: $showLogin) {
-                Task { await vm.reloadAPIWebViewAndRefresh() }
+            LoginSheetView(isPresented: $showLogin) { webView in
+                Task { await vm.adoptAndRefresh(webView) }
             }
         }
         .sheet(isPresented: $showUpdateSheet) {
