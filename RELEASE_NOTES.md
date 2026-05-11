@@ -1,10 +1,8 @@
 ## What's new in v1.2.1
 
 ### Bug fixes
-- Fixed premature login detection when signing in with Google/OAuth: the login window was closing the moment the browser navigated to the OAuth provider (e.g. accounts.google.com), before the sign-in actually completed and before any session cookie was set. Auth is now only detected when the browser returns to claude.ai/anthropic.com at a non-login page.
-- Fixed the root cause of "Not signed in" errors: URLSession was silently discarding the manually-set Cookie header because `httpShouldHandleCookies` defaults to `true`, which makes URLSession replace it with its own (empty) HTTPCookieStorage. Setting `httpShouldHandleCookies = false` ensures cookies from WKWebsiteDataStore are actually sent.
-- Added browser-like request headers (User-Agent, Origin, Referer) matching what Claude's API expects
-- Fixed login window auto-closing before the user could sign in — login window loads `/login` so detection only fires after the actual sign-in redirect
-- Fixed login detection for Next.js SPA navigation using KVO on WebView URL
+- Fixed the root cause of "Not signed in" after being clearly signed in: claude.ai's auth requires credentials beyond plain HTTP cookies (localStorage tokens, Service Worker state, etc.) that URLSession cannot access. All API calls now run via callAsyncJavaScript inside a background WKWebView, using the same fetch path the page itself uses — credentials are included automatically.
+- Fixed WebKit suspending the background WKWebView: a WKWebView with no window is throttled/suspended by macOS, preventing JS execution. The background WebView is now anchored in a transparent 1×1 NSWindow, keeping it active.
+- Fixed login window auto-closing before sign-in completes — login window loads `/login` and only detects auth when back on claude.ai (not on OAuth provider redirects)
 - Added `/api/organizations` as a final fallback for org ID resolution
 - Fixed Settings incorrectly showing "Signed in" after a failed refresh
