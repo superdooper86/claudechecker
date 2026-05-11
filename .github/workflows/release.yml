@@ -73,7 +73,7 @@ jobs:
           import os, re
           v = os.environ['NEW_VERSION']
           content = open('README.md').read()
-          content = re.sub(r'version-[0-9][^-]*-orange', 'version-' + v + '-orange', content)
+          content = re.sub(r'macOS_Stable-[^-]+-orange', 'macOS_Stable-' + v + '-orange', content)
           lines = content.splitlines(keepends=True)
           out = ['<!-- BETA_BADGE -->' + chr(10) if '<!-- BETA_BADGE -->' in line else line for line in lines]
           open('README.md', 'w').writelines(out)
