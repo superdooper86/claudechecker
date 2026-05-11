@@ -4,7 +4,7 @@ import WebKit
 // MARK: - Login Web View
 
 struct LoginWebView: NSViewRepresentable {
-    let onAuthenticated: () -> Void
+    let onAuthenticated: (WKWebView) -> Void
 
     func makeNSView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
@@ -12,6 +12,7 @@ struct LoginWebView: NSViewRepresentable {
 
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.navigationDelegate = context.coordinator
+        context.coordinator.webView = webView
 
         // KVO on url catches SPA pushState navigations that don't fire didFinish
         context.coordinator.urlObservation = webView.observe(\.url, options: [.new]) { [weak coordinator = context.coordinator] wv, _ in
@@ -29,23 +30,24 @@ struct LoginWebView: NSViewRepresentable {
     }
 
     class Coordinator: NSObject, WKNavigationDelegate {
-        let onAuthenticated: () -> Void
+        let onAuthenticated: (WKWebView) -> Void
+        weak var webView: WKWebView?
         var didAuthenticate = false
         var urlObservation: NSKeyValueObservation?
 
-        init(onAuthenticated: @escaping () -> Void) {
+        init(onAuthenticated: @escaping (WKWebView) -> Void) {
             self.onAuthenticated = onAuthenticated
         }
 
         func checkCurrentURL(_ url: String?) {
-            guard !didAuthenticate, let url else { return }
+            guard !didAuthenticate, let url, let wv = webView else { return }
             // Ignore navigations to external OAuth providers (Google, etc.) —
             // only consider auth complete when we land back on claude.ai/anthropic.com
             guard url.contains("claude.ai") || url.contains("anthropic.com") else { return }
             if url.contains("/login") || url.contains("/auth") { return }
             didAuthenticate = true
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                self.onAuthenticated()
+                self.onAuthenticated(wv)
             }
         }
 
@@ -60,7 +62,7 @@ struct LoginWebView: NSViewRepresentable {
 
 struct LoginSheetView: View {
     @Binding var isPresented: Bool
-    let onDone: () -> Void
+    let onDone: (WKWebView) -> Void
     @State private var authenticated = false
 
     var body: some View {
@@ -70,12 +72,9 @@ struct LoginSheetView: View {
                     .font(.system(size: 13, weight: .semibold))
                 Spacer()
                 if authenticated {
-                    Button("Done") {
-                        isPresented = false
-                        onDone()
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.small)
+                    Button("Done") { isPresented = false }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.small)
                 } else {
                     Button("Cancel") { isPresented = false }
                         .buttonStyle(.bordered)
@@ -88,12 +87,13 @@ struct LoginSheetView: View {
 
             Divider()
 
-            LoginWebView {
+            LoginWebView { webView in
                 authenticated = true
-                // Auto-dismiss and refresh after brief delay
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                // Adopt the authenticated WebView immediately (before sheet tears it down),
+                // then auto-dismiss after a moment so the user sees confirmation.
+                onDone(webView)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
                     isPresented = false
-                    onDone()
                 }
             }
         }
