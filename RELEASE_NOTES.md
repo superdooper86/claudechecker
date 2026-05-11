@@ -1,7 +1,8 @@
 ## What's new in v1.2.1
 
 ### Bug fixes
-- Fixed usage data not loading after sign-in — API calls now run inside a persistent background WebView using the page's own fetch(), so all credentials (cookies, localStorage tokens, etc.) are included automatically
+- Fixed a timing race in the background API WebView — `refresh()` now correctly waits for the WebView to finish loading before making API calls, preventing silent failures on startup
+- Fixed usage data not loading after sign-in — API calls now run inside a persistent background WebView using the page's own fetch(), so all credentials (cookies, httpOnly tokens, etc.) are included automatically
 - Fixed "Not signed in" showing after login — the background WebView is now reloaded after sign-in to pick up the new session before the first data refresh
 - Fixed "Not signed in" showing incorrectly on launch when the session was already active
 - Sign-in state is now detected immediately from stored cookies on startup, before the first data refresh completes
