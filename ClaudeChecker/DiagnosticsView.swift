@@ -74,17 +74,6 @@ struct DiagnosticsView: View {
 
                     Divider()
 
-                    // Cookie summary
-                    DiagSection(title: "Cookie Store") {
-                        DiagRow("Total cookies",       "\(vm.diagCookieCount)")
-                        DiagRow("claude.ai cookies",   "\(vm.diagClaudeCookieCount)")
-                        DiagRow("All domains", vm.diagCookieDomains.isEmpty
-                            ? "(none — never fetched)"
-                            : vm.diagCookieDomains.joined(separator: ", "))
-                    }
-
-                    Divider()
-
                     // Live cookie list
                     DiagSection(title: "Live Cookie Names (WKWebsiteDataStore.default)") {
                         if loadingCookies {
