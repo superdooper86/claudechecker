@@ -35,7 +35,7 @@
                            VerticalAlignment="Center" Text="Waiting for sign-in…"/>
                 <Button Grid.Column="1" Content="Done — I'm signed in"
                         Style="{StaticResource PrimaryButton}" Click="Done_Click"
-                        x:Name="DoneButton" IsEnabled="False"/>
+                        x:Name="DoneButton"/>
             </Grid>
         </Border>
     </Grid>
