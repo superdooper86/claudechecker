@@ -1,5 +1,5 @@
 {
-  "version": "1.2.1-beta.14",
-  "url": "https://github.com/superdooper86/claudechecker/releases/download/v1.2.1-beta.14/ClaudeChecker.zip",
+  "version": "1.2.1-beta.15",
+  "url": "https://github.com/superdooper86/claudechecker/releases/download/v1.2.1-beta.15/ClaudeChecker.zip",
   "notes": "## What's new in v1.2.1\n\n### Bug fixes\n- Fixed the root cause of \"Not signed in\" errors: URLSession was silently discarding the manually-set Cookie header because `httpShouldHandleCookies` defaults to `true`, which makes URLSession replace it with its own (empty) HTTPCookieStorage — claude.ai session cookies live in WKWebsiteDataStore, not HTTPCookieStorage. Setting `httpShouldHandleCookies = false` ensures the cookies are actually sent.\n- Added browser-like request headers (User-Agent, Origin, Referer) matching what Claude's API expects, consistent with the working Windows implementation\n- Removed background WKWebView complexity added in beta.12–13 — reverted to simple URLSession approach with correct cookie handling\n- Fixed login window auto-closing before the user could sign in — login window loads `/login` so auth is only detected after the actual sign-in redirect\n- Fixed login detection for Next.js SPA navigation using KVO on WebView URL (history.pushState doesn't trigger didFinish)\n- Added `/api/organizations` as a final fallback for org ID resolution\n- Fixed Settings incorrectly showing \"Signed in\" after a failed refresh"
 }
