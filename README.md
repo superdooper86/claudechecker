@@ -7,6 +7,7 @@
 **A native macOS menubar app for monitoring your Claude AI usage limits in real time.**
 
 [![macOS](https://img.shields.io/badge/macOS-13.0+-000000?style=flat&logo=apple&logoColor=white)](https://www.apple.com/macos/)
+[![Windows](https://img.shields.io/badge/Windows-10%2B-0078D4?style=flat&logo=windows&logoColor=white)](https://www.microsoft.com/windows/)
 [![Swift](https://img.shields.io/badge/Swift-5.9-F05138?style=flat&logo=swift&logoColor=white)](https://swift.org)
 [![License](https://img.shields.io/badge/license-MIT-blue?style=flat)](LICENSE)
 <br/>
