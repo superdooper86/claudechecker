@@ -43,7 +43,7 @@ class UsageViewModel: ObservableObject {
 
     private func checkInitialSignInState() async {
         let cookies = await WKWebsiteDataStore.default().httpCookieStore.allCookies()
-        let hasAnyCookie = cookies.contains { $0.domain.contains("claude.ai") }
+        let hasAnyCookie = cookies.contains { $0.domain.contains("claude.ai") || $0.domain.contains("anthropic.com") }
         if hasAnyCookie { isSignedIn = true }
     }
 
@@ -51,7 +51,7 @@ class UsageViewModel: ObservableObject {
         let store = WKWebsiteDataStore.default()
         let types = WKWebsiteDataStore.allWebsiteDataTypes()
         let records = await store.dataRecords(ofTypes: types)
-        let claudeRecords = records.filter { $0.displayName.contains("claude.ai") }
+        let claudeRecords = records.filter { $0.displayName.contains("claude.ai") || $0.displayName.contains("anthropic.com") }
         await store.removeData(ofTypes: types, for: claudeRecords)
         UserDefaults.standard.removeObject(forKey: "claude_org_id")
         isSignedIn = false
@@ -109,6 +109,7 @@ class UsageViewModel: ObservableObject {
             checkLimitNotifications(for: limits)
         } catch AppError.notAuthenticated {
             isNotAuthenticated = true
+            isSignedIn = false
             errorMessage = "Not signed in"
         } catch let error as DecodingError {
             switch error {
@@ -192,7 +193,7 @@ class UsageViewModel: ObservableObject {
 
     private func claudeCookieHeader() async -> String? {
         let cookies = await WKWebsiteDataStore.default().httpCookieStore.allCookies()
-        let claudeCookies = cookies.filter { $0.domain.contains("claude.ai") }
+        let claudeCookies = cookies.filter { $0.domain.contains("claude.ai") || $0.domain.contains("anthropic.com") }
         return HTTPCookie.requestHeaderFields(with: claudeCookies)["Cookie"]
     }
 
