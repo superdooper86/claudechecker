@@ -12,7 +12,7 @@
 [![License](https://img.shields.io/badge/license-MIT-blue?style=flat)](LICENSE)
 <br/>
 [![macOS Stable](https://img.shields.io/badge/macOS_Stable-1.3.2-orange?style=flat)](https://github.com/superdooper86/claudechecker/releases)
-[![macOS Beta](https://img.shields.io/badge/macOS_Beta-1.3.3--beta.3-orange?style=flat)](https://github.com/superdooper86/claudechecker/releases/tag/v1.3.3-beta.3) <!-- BETA_BADGE -->
+[![macOS Beta](https://img.shields.io/badge/macOS_Beta-1.3.3--beta.5-orange?style=flat)](https://github.com/superdooper86/claudechecker/releases/tag/v1.3.3-beta.5) <!-- BETA_BADGE -->
 [![Win Beta](https://img.shields.io/badge/Win_Beta-0.0.1--beta.55-blue?style=flat)](https://github.com/superdooper86/claudechecker/releases/tag/win-v0.0.1-beta.55) <!-- WIN_BETA_BADGE -->
 
 </div>
