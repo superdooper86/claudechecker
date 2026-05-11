@@ -141,17 +141,22 @@ struct DiagnosticsView: View {
     }
 
     private var fullDiagText: String {
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
+        let build   = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"
+        let orgId   = UserDefaults.standard.string(forKey: "claude_org_id") ?? "(none)"
+        let lastOrg = vm.diagLastActiveOrg.isEmpty ? "(not read)" : vm.diagLastActiveOrg
+        let lastErr = vm.diagLastError.isEmpty ? "(none)" : vm.diagLastError
         var lines: [String] = []
         lines.append("=== ClaudeChecker Diagnostics ===")
-        lines.append("Version: \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?") (\(Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"))")
+        lines.append("Version: \(version) (\(build))")
         lines.append("Signed in: \(vm.isSignedIn ? "Yes" : "No")")
-        lines.append("Org ID: \(UserDefaults.standard.string(forKey: \"claude_org_id\") ?? \"(none)\")")
-        lines.append("lastActiveOrg: \(vm.diagLastActiveOrg.isEmpty ? \"(not read)\" : vm.diagLastActiveOrg)")
+        lines.append("Org ID: \(orgId)")
+        lines.append("lastActiveOrg: \(lastOrg)")
         lines.append("Error: \(vm.errorMessage ?? "(none)")")
         lines.append("")
         lines.append("Last path: \(vm.diagLastPath)")
         lines.append("Last status: \(vm.diagLastStatus)")
-        lines.append("Last error: \(vm.diagLastError.isEmpty ? \"(none)\" : vm.diagLastError)")
+        lines.append("Last error: \(lastErr)")
         if let t = vm.diagLastFetch {
             lines.append("Time: \(t.formatted(date: .omitted, time: .standard))")
         }
