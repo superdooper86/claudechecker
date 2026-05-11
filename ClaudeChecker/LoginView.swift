@@ -36,12 +36,10 @@ struct LoginWebView: NSViewRepresentable {
             if let url = webView.url?.absoluteString,
                url.contains("/login") || url.contains("/auth") { return }
 
+            // URL is not a login/auth page, so if any claude.ai cookie exists we're signed in
             WKWebsiteDataStore.default().httpCookieStore.getAllCookies { cookies in
-                let hasSession = cookies.contains {
-                    $0.domain.contains("claude.ai") &&
-                    ($0.name == "sessionKey" || $0.name == "__Secure-next-auth.session-token")
-                }
-                guard hasSession, !self.didAuthenticate else { return }
+                let hasAnyCookie = cookies.contains { $0.domain.contains("claude.ai") }
+                guard hasAnyCookie, !self.didAuthenticate else { return }
                 self.didAuthenticate = true
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                     self.onAuthenticated()
