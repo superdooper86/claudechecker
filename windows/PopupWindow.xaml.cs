@@ -624,7 +624,7 @@ public partial class PopupWindow : Window
         sb.AppendLine();
         sb.AppendLine($"Last path: {VM.DiagLastPath}");
         sb.AppendLine($"Last status: {VM.DiagLastStatus}");
-        sb.AppendLine($"Last error: {VM.DiagLastError}");
+        sb.AppendLine($"Last error: {(string.IsNullOrEmpty(VM.DiagLastError) ? "(none)" : VM.DiagLastError)}");
         if (VM.DiagLastFetch.HasValue)
             sb.AppendLine($"Last fetch: {VM.DiagLastFetch.Value:HH:mm:ss}");
         sb.AppendLine();
