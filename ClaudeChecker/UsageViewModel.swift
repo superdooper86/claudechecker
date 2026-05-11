@@ -87,9 +87,10 @@ class UsageViewModel: ObservableObject {
 
         var req = URLRequest(url: URL(string: "https://claude.ai\(path)")!)
         req.httpShouldHandleCookies = false
-        if let cookieHeader = HTTPCookie.requestHeaderFields(with: claudeCookies)["Cookie"] {
-            req.setValue(cookieHeader, forHTTPHeaderField: "Cookie")
-        }
+        // Build cookie header manually (same format as Windows HttpClient) to avoid
+        // any encoding differences from HTTPCookie.requestHeaderFields(with:)
+        let cookieHeader = claudeCookies.map { "\($0.name)=\($0.value)" }.joined(separator: "; ")
+        req.setValue(cookieHeader, forHTTPHeaderField: "Cookie")
         req.setValue("application/json", forHTTPHeaderField: "Accept")
         req.setValue("https://claude.ai", forHTTPHeaderField: "Origin")
         req.setValue("https://claude.ai/", forHTTPHeaderField: "Referer")
@@ -104,9 +105,11 @@ class UsageViewModel: ObservableObject {
             forHTTPHeaderField: "sec-ch-ua")
         req.setValue("?0",        forHTTPHeaderField: "sec-ch-ua-mobile")
         req.setValue("\"macOS\"", forHTTPHeaderField: "sec-ch-ua-platform")
+        req.setValue("web",       forHTTPHeaderField: "anthropic-client-platform")
 
+        let session = URLSession(configuration: .ephemeral)
         do {
-            let (data, response) = try await URLSession.shared.data(for: req)
+            let (data, response) = try await session.data(for: req)
             guard let http = response as? HTTPURLResponse else { throw AppError.networkError }
             let body = String(data: data, encoding: .utf8) ?? ""
             diagLastStatus = http.statusCode
@@ -257,7 +260,7 @@ class UsageViewModel: ObservableObject {
 
     private func fetchUsage(orgId: String) async throws -> UsageResponse {
         let (status, body) = try await urlFetch("/api/organizations/\(orgId)/usage")
-        if status == 401 || status == 403 { throw AppError.notAuthenticated }
+        if status == 401 || status == 403 { throw AppError.detail("usage \(status): \(body.prefix(200))") }
         guard status == 200 else { throw AppError.networkError }
         guard let data = body.data(using: .utf8) else { throw AppError.networkError }
         return try JSONDecoder().decode(UsageResponse.self, from: data)
