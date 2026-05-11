@@ -30,13 +30,6 @@ class UsageViewModel: ObservableObject {
     private var previousPercents: [String: Double] = [:]
     private var firedThresholds: [String: Set<Int>] = [:]
 
-    // Background WKWebView used for all API calls — runs fetch() in the page's auth context
-    private var apiWebView: WKWebView?
-    private var apiDelegate: APIWebViewDelegate?
-    // Tracks whether the background WebView has finished its current navigation
-    private var apiWebViewLoaded = false
-    private var apiReadyContinuations: [CheckedContinuation<Void, Never>] = []
-
     init() {
         let saved = UserDefaults.standard.double(forKey: "refresh_interval")
         refreshInterval = saved > 0 ? saved : 60
@@ -45,74 +38,7 @@ class UsageViewModel: ObservableObject {
             burnHistoryStore = saved
         }
         loadPlaceholderData()
-        setupAPIWebView()
         Task { await checkInitialSignInState() }
-    }
-
-    // MARK: - Background API WebView
-
-    private func setupAPIWebView() {
-        let config = WKWebViewConfiguration()
-        config.websiteDataStore = WKWebsiteDataStore.default()
-        let wv = WKWebView(frame: CGRect(x: 0, y: 0, width: 1, height: 1), configuration: config)
-        let del = APIWebViewDelegate()
-        del.onNavigationEnd = { [weak self] in
-            guard let self else { return }
-            self.apiWebViewLoaded = true
-            self.resumeAPIReadyContinuations()
-        }
-        wv.navigationDelegate = del
-        apiWebView = wv
-        apiDelegate = del
-        wv.load(URLRequest(url: URL(string: "https://claude.ai")!))
-    }
-
-    private func resumeAPIReadyContinuations() {
-        let pending = apiReadyContinuations
-        apiReadyContinuations.removeAll()
-        pending.forEach { $0.resume() }
-    }
-
-    // Suspends until the background WebView has finished loading.
-    private func waitForAPIWebViewReady() async {
-        guard !apiWebViewLoaded else { return }
-        await withCheckedContinuation { cont in
-            apiReadyContinuations.append(cont)
-        }
-    }
-
-    // Called after login: reloads the background WebView to pick up the new session, then refreshes.
-    func reloadAPIWebViewAndRefresh() async {
-        guard let wv = apiWebView, let del = apiDelegate else {
-            await refresh()
-            return
-        }
-        // Reset readiness and wire up the reload callback before starting the load
-        apiWebViewLoaded = false
-        del.onNavigationEnd = { [weak self] in
-            guard let self else { return }
-            self.apiWebViewLoaded = true
-            self.resumeAPIReadyContinuations()
-        }
-        wv.load(URLRequest(url: URL(string: "https://claude.ai")!))
-        await waitForAPIWebViewReady()
-        // Brief pause for the page's JS auth state to settle after navigation
-        try? await Task.sleep(nanoseconds: 500_000_000)
-        await refresh()
-    }
-
-    // Runs a fetch() call inside the background WebView's page context (same-origin, credentials included).
-    private func webViewFetch(_ path: String) async throws -> (statusCode: Int, body: String) {
-        guard let wv = apiWebView else { throw AppError.networkError }
-        // Wait until the WebView has finished loading claude.ai so fetch() has a valid auth context
-        await waitForAPIWebViewReady()
-        let js = "const r = await fetch(path, {credentials:'include'}); return {s: r.status, b: await r.text()};"
-        let result = try await wv.callAsyncJavaScript(
-            js, arguments: ["path": path], in: nil, in: .page)
-        guard let d = result as? [String: Any],
-              let s = (d["s"] as? NSNumber)?.intValue,
-              let b = d["b"] as? String else { throw AppError.networkError }
-        return (s, b)
     }
 
     private func checkInitialSignInState() async {
@@ -135,16 +61,6 @@ class UsageViewModel: ObservableObject {
         extraUsage = nil
         prepaidCredits = nil
         overageSpendLimit = nil
-        // Reload background WebView to clear its session too
-        apiWebViewLoaded = false
-        if let del = apiDelegate {
-            del.onNavigationEnd = { [weak self] in
-                guard let self else { return }
-                self.apiWebViewLoaded = true
-                self.resumeAPIReadyContinuations()
-            }
-        }
-        apiWebView?.load(URLRequest(url: URL(string: "https://claude.ai")!))
     }
 
     func refresh() async {
@@ -210,14 +126,44 @@ class UsageViewModel: ObservableObject {
         }
     }
 
+    // MARK: - HTTP helpers
+
+    // Builds a URLRequest with browser-like headers and cookies from WKWebsiteDataStore.
+    //
+    // httpShouldHandleCookies MUST be false: when true, URLSession replaces any manually-set
+    // Cookie header with its own HTTPCookieStorage (which is empty — claude.ai cookies live in
+    // WKWebsiteDataStore, not HTTPCookieStorage), causing every request to go out with no cookies.
+    private func claudeAPIRequest(for url: URL) async -> URLRequest {
+        var req = URLRequest(url: url)
+        req.httpShouldHandleCookies = false
+        req.setValue("application/json", forHTTPHeaderField: "accept")
+        req.setValue("https://claude.ai", forHTTPHeaderField: "origin")
+        req.setValue("https://claude.ai/", forHTTPHeaderField: "referer")
+        req.setValue(
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            forHTTPHeaderField: "user-agent")
+        if let cookie = await claudeCookieHeader() {
+            req.setValue(cookie, forHTTPHeaderField: "cookie")
+        }
+        return req
+    }
+
+    private func claudeCookieHeader() async -> String? {
+        let cookies = await WKWebsiteDataStore.default().httpCookieStore.allCookies()
+        guard !cookies.isEmpty else { return nil }
+        return HTTPCookie.requestHeaderFields(with: cookies)["Cookie"]
+    }
+
     // MARK: - Bootstrap (org ID + email + plan label in one call)
 
     private func fetchBootstrap() async throws -> (orgId: String?, email: String?, planLabel: String?) {
-        let (status, body) = try await webViewFetch("/api/bootstrap")
-        if status == 401 || status == 403 { throw AppError.notAuthenticated }
-        guard status == 200 else { throw AppError.networkError }
-        guard let data = body.data(using: .utf8),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+        let url = URL(string: "https://claude.ai/api/bootstrap")!
+        let req = await claudeAPIRequest(for: url)
+        let (data, response) = try await URLSession.shared.data(for: req)
+        guard let http = response as? HTTPURLResponse else { throw AppError.networkError }
+        if http.statusCode == 401 || http.statusCode == 403 { throw AppError.notAuthenticated }
+        guard http.statusCode == 200 else { throw AppError.networkError }
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             return (nil, nil, nil)
         }
 
@@ -230,9 +176,9 @@ class UsageViewModel: ObservableObject {
             orgId = (json["organizations"] as? [[String: Any]])?.first?["uuid"] as? String
         }
         if orgId == nil {
-            if let (orgsStatus, orgsBody) = try? await webViewFetch("/api/organizations"),
-               orgsStatus == 200,
-               let orgsData = orgsBody.data(using: .utf8),
+            let orgsReq = await claudeAPIRequest(for: URL(string: "https://claude.ai/api/organizations")!)
+            if let (orgsData, orgsResp) = try? await URLSession.shared.data(for: orgsReq),
+               let orgsHttp = orgsResp as? HTTPURLResponse, orgsHttp.statusCode == 200,
                let orgs = try? JSONSerialization.jsonObject(with: orgsData) as? [[String: Any]] {
                 orgId = orgs.first?["uuid"] as? String
             }
@@ -253,24 +199,28 @@ class UsageViewModel: ObservableObject {
     // MARK: - Fetch usage
 
     private func fetchUsage(orgId: String) async throws -> UsageResponse {
-        let (status, body) = try await webViewFetch("/api/organizations/\(orgId)/usage")
-        if status == 401 || status == 403 { throw AppError.notAuthenticated }
-        guard status == 200 else { throw AppError.networkError }
-        guard let data = body.data(using: .utf8) else { throw AppError.networkError }
+        let url = URL(string: "https://claude.ai/api/organizations/\(orgId)/usage")!
+        let req = await claudeAPIRequest(for: url)
+        let (data, response) = try await URLSession.shared.data(for: req)
+        guard let http = response as? HTTPURLResponse else { throw AppError.networkError }
+        if http.statusCode == 401 || http.statusCode == 403 { throw AppError.notAuthenticated }
+        guard http.statusCode == 200 else { throw AppError.networkError }
         return try JSONDecoder().decode(UsageResponse.self, from: data)
     }
 
     private func fetchPrepaidCredits(orgId: String) async throws -> PrepaidCredits? {
-        guard let (status, body) = try? await webViewFetch("/api/organizations/\(orgId)/prepaid/credits"),
-              status == 200,
-              let data = body.data(using: .utf8) else { return nil }
+        let url = URL(string: "https://claude.ai/api/organizations/\(orgId)/prepaid/credits")!
+        let req = await claudeAPIRequest(for: url)
+        let (data, response) = try await URLSession.shared.data(for: req)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { return nil }
         return try? JSONDecoder().decode(PrepaidCredits.self, from: data)
     }
 
     private func fetchOverageSpendLimit(orgId: String) async throws -> OverageSpendLimit? {
-        guard let (status, body) = try? await webViewFetch("/api/organizations/\(orgId)/overage_spend_limit"),
-              status == 200,
-              let data = body.data(using: .utf8) else { return nil }
+        let url = URL(string: "https://claude.ai/api/organizations/\(orgId)/overage_spend_limit")!
+        let req = await claudeAPIRequest(for: url)
+        let (data, response) = try await URLSession.shared.data(for: req)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { return nil }
         return try? JSONDecoder().decode(OverageSpendLimit.self, from: data)
     }
 
@@ -384,23 +334,6 @@ class UsageViewModel: ObservableObject {
                 projectedHit: .afterReset, burnRate: 0,
                 burnHistory: [], isLive: false),
         ]
-    }
-}
-
-// MARK: - API WebView Delegate
-
-private class APIWebViewDelegate: NSObject, WKNavigationDelegate {
-    // Called on every didFinish / didFail — not cleared after firing, so subsequent navigations also trigger it
-    var onNavigationEnd: (() -> Void)?
-
-    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-        onNavigationEnd?()
-    }
-    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
-        onNavigationEnd?()
-    }
-    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
-        onNavigationEnd?()
     }
 }
 
