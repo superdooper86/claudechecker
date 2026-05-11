@@ -38,6 +38,15 @@ struct DiagnosticsView: View {
 
             Divider()
 
+            Text("Email and org IDs are redacted when copied.")
+                .font(.system(size: 10))
+                .foregroundColor(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 6)
+
+            Divider()
+
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
 
