@@ -128,12 +128,25 @@ class UsageViewModel: ObservableObject {
 
     // MARK: - Bootstrap (org ID + email + plan label in one call)
 
+    private func claudeAPIRequest(for url: URL) async -> URLRequest {
+        var req = URLRequest(url: url)
+        req.setValue("application/json, text/plain, */*", forHTTPHeaderField: "accept")
+        req.setValue("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36", forHTTPHeaderField: "User-Agent")
+        req.setValue("https://claude.ai", forHTTPHeaderField: "Origin")
+        req.setValue("https://claude.ai/", forHTTPHeaderField: "Referer")
+        req.setValue("same-origin", forHTTPHeaderField: "sec-fetch-site")
+        req.setValue("cors", forHTTPHeaderField: "sec-fetch-mode")
+        req.setValue("empty", forHTTPHeaderField: "sec-fetch-dest")
+        if let cookie = await claudeCookieHeader() {
+            req.setValue(cookie, forHTTPHeaderField: "Cookie")
+        }
+        return req
+    }
+
     private func fetchBootstrap() async throws -> (orgId: String?, email: String?, planLabel: String?) {
         let url = URL(string: "https://claude.ai/api/bootstrap")!
-        var req = URLRequest(url: url)
-        req.setValue("application/json", forHTTPHeaderField: "accept")
-        guard let cookie = await claudeCookieHeader() else { throw AppError.notAuthenticated }
-        req.setValue(cookie, forHTTPHeaderField: "Cookie")
+        var req = await claudeAPIRequest(for: url)
+        guard req.value(forHTTPHeaderField: "Cookie") != nil else { throw AppError.notAuthenticated }
         let (data, response) = try await URLSession.shared.data(for: req)
         guard let http = response as? HTTPURLResponse else { throw AppError.networkError }
         if http.statusCode == 401 || http.statusCode == 403 { throw AppError.notAuthenticated }
@@ -152,11 +165,9 @@ class UsageViewModel: ObservableObject {
         if orgId == nil {
             orgId = (json["organizations"] as? [[String: Any]])?.first?["uuid"] as? String
         }
-        if orgId == nil, let cookie = await claudeCookieHeader() {
+        if orgId == nil {
             // Final fallback: fetch /api/organizations directly
-            var orgsReq = URLRequest(url: URL(string: "https://claude.ai/api/organizations")!)
-            orgsReq.setValue("application/json", forHTTPHeaderField: "accept")
-            orgsReq.setValue(cookie, forHTTPHeaderField: "Cookie")
+            let orgsReq = await claudeAPIRequest(for: URL(string: "https://claude.ai/api/organizations")!)
             if let (orgsData, orgsResp) = try? await URLSession.shared.data(for: orgsReq),
                let orgsHttp = orgsResp as? HTTPURLResponse, orgsHttp.statusCode == 200,
                let orgs = try? JSONSerialization.jsonObject(with: orgsData) as? [[String: Any]] {
@@ -187,9 +198,7 @@ class UsageViewModel: ObservableObject {
 
     private func fetchUsage(orgId: String) async throws -> UsageResponse {
         let url = URL(string: "https://claude.ai/api/organizations/\(orgId)/usage")!
-        var req = URLRequest(url: url)
-        req.setValue("application/json", forHTTPHeaderField: "accept")
-        if let cookie = await claudeCookieHeader() { req.setValue(cookie, forHTTPHeaderField: "Cookie") }
+        let req = await claudeAPIRequest(for: url)
         let (data, response) = try await URLSession.shared.data(for: req)
         guard let http = response as? HTTPURLResponse else { throw AppError.networkError }
         if http.statusCode == 401 || http.statusCode == 403 { throw AppError.notAuthenticated }
@@ -199,9 +208,7 @@ class UsageViewModel: ObservableObject {
 
     private func fetchPrepaidCredits(orgId: String) async throws -> PrepaidCredits? {
         let url = URL(string: "https://claude.ai/api/organizations/\(orgId)/prepaid/credits")!
-        var req = URLRequest(url: url)
-        req.setValue("application/json", forHTTPHeaderField: "accept")
-        if let cookie = await claudeCookieHeader() { req.setValue(cookie, forHTTPHeaderField: "Cookie") }
+        let req = await claudeAPIRequest(for: url)
         let (data, response) = try await URLSession.shared.data(for: req)
         guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { return nil }
         return try? JSONDecoder().decode(PrepaidCredits.self, from: data)
@@ -209,9 +216,7 @@ class UsageViewModel: ObservableObject {
 
     private func fetchOverageSpendLimit(orgId: String) async throws -> OverageSpendLimit? {
         let url = URL(string: "https://claude.ai/api/organizations/\(orgId)/overage_spend_limit")!
-        var req = URLRequest(url: url)
-        req.setValue("application/json", forHTTPHeaderField: "accept")
-        if let cookie = await claudeCookieHeader() { req.setValue(cookie, forHTTPHeaderField: "Cookie") }
+        let req = await claudeAPIRequest(for: url)
         let (data, response) = try await URLSession.shared.data(for: req)
         guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { return nil }
         return try? JSONDecoder().decode(OverageSpendLimit.self, from: data)

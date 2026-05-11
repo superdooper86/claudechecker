@@ -6,3 +6,4 @@
 - Fixed login window auto-closing before the user could sign in — the login window now correctly loads the `/login` page so it only detects auth after the actual sign-in redirect
 - Fixed "No API key configured" showing after signing out — now correctly shows "Not signed in" with a prompt to sign in
 - Added `/api/organizations` as a final fallback for org ID resolution when the bootstrap API response doesn't include it
+- Fixed usage data not loading after sign-in — API requests now include required browser-like headers (Origin, Referer, User-Agent) that Claude's usage endpoints require
