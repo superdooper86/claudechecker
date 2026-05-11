@@ -34,7 +34,7 @@ class UsageViewModel: ObservableObject {
     private var apiWebView: WKWebView?
     private var navWaiter: WKNavWaiter?
 
-    // Diagnostics — populated on every urlFetch call
+    // Diagnostics
     @Published var diagCookieCount: Int = 0
     @Published var diagClaudeCookieCount: Int = 0
     @Published var diagCookieDomains: [String] = []
@@ -42,6 +42,8 @@ class UsageViewModel: ObservableObject {
     @Published var diagLastStatus: Int = 0
     @Published var diagLastBody: String = ""
     @Published var diagLastError: String = ""
+    @Published var diagLastActiveOrg: String = ""   // lastActiveOrg cookie value from JS
+    @Published var diagBootstrapBody: String = ""   // raw bootstrap response (first 500 chars)
     @Published var diagLastFetch: Date? = nil
 
     init() {
@@ -225,10 +227,31 @@ class UsageViewModel: ObservableObject {
         defer { isLoading = false }
 
         do {
+            // Read lastActiveOrg cookie from JS — most reliable org source since it's
+            // set by the claude.ai frontend to whichever org is currently active.
+            var cookieOrgId: String? = nil
+            if let wv = apiWebView, wv.url?.host?.hasSuffix("claude.ai") == true {
+                let js = """
+                return document.cookie.split(';')
+                    .map(c => c.trim().split('='))
+                    .filter(p => p[0] === 'lastActiveOrg')
+                    .map(p => p.slice(1).join('='))[0] || null;
+                """
+                let raw: Any? = try? await withCheckedThrowingContinuation { cont in
+                    wv.callAsyncJavaScript(js, arguments: [:], in: nil, in: .defaultClient) { r in
+                        cont.resume(returning: (try? r.get()) ?? nil)
+                    }
+                }
+                if let v = raw as? String, !v.isEmpty {
+                    cookieOrgId = v
+                    diagLastActiveOrg = v
+                }
+            }
+
             let (fetchedOrgId, fetchedEmail, fetchedPlan) = try await fetchBootstrap()
 
             let orgId: String
-            if let id = fetchedOrgId {
+            if let id = cookieOrgId ?? fetchedOrgId {
                 UserDefaults.standard.set(id, forKey: "claude_org_id")
                 orgId = id
             } else if let cached = UserDefaults.standard.string(forKey: "claude_org_id") {
@@ -292,6 +315,7 @@ class UsageViewModel: ObservableObject {
         guard body.trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("{") else {
             throw AppError.detail("Non-JSON response (HTML?): \(body.prefix(80))")
         }
+        diagBootstrapBody = String(body.prefix(500))
         guard let data = body.data(using: .utf8),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             return (nil, nil, nil)

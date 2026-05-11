@@ -48,6 +48,7 @@ struct DiagnosticsView: View {
                         DiagRow("Signed in", vm.isSignedIn ? "Yes" : "No")
                         DiagRow("Email",   vm.userEmail.isEmpty ? "(none)" : vm.userEmail)
                         DiagRow("Org ID",  UserDefaults.standard.string(forKey: "claude_org_id") ?? "(none)")
+                        DiagRow("lastActiveOrg", vm.diagLastActiveOrg.isEmpty ? "(not read)" : vm.diagLastActiveOrg)
                         DiagRow("Error",   vm.errorMessage ?? "(none)")
                     }
 
@@ -65,9 +66,24 @@ struct DiagnosticsView: View {
 
                     Divider()
 
+                    // Bootstrap body
+                    if !vm.diagBootstrapBody.isEmpty {
+                        DiagSection(title: "Bootstrap Response (first 500 chars)") {
+                            Text(vm.diagBootstrapBody)
+                                .font(.system(size: 10, design: .monospaced))
+                                .foregroundColor(.secondary)
+                                .textSelection(.enabled)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(8)
+                                .background(Color.primary.opacity(0.04))
+                                .cornerRadius(5)
+                        }
+                        Divider()
+                    }
+
                     // Response body
                     if !vm.diagLastBody.isEmpty {
-                        DiagSection(title: "Response Body (first 500 chars)") {
+                        DiagSection(title: "Last API Response (first 500 chars)") {
                             Text(vm.diagLastBody)
                                 .font(.system(size: 10, design: .monospaced))
                                 .foregroundColor(.secondary)
@@ -164,6 +180,7 @@ struct DiagnosticsView: View {
         lines.append("Signed in: \(vm.isSignedIn ? "Yes" : "No")")
         lines.append("Email: \(vm.userEmail.isEmpty ? "(none)" : vm.userEmail)")
         lines.append("Org ID: \(UserDefaults.standard.string(forKey: "claude_org_id") ?? "(none)")")
+        lines.append("lastActiveOrg: \(vm.diagLastActiveOrg.isEmpty ? "(not read)" : vm.diagLastActiveOrg)")
         lines.append("Error: \(vm.errorMessage ?? "(none)")")
         lines.append("")
         lines.append("Last path: \(vm.diagLastPath)")
@@ -173,7 +190,10 @@ struct DiagnosticsView: View {
         lines.append("Claude cookies: \(vm.diagClaudeCookieCount)")
         lines.append("Domains: \(vm.diagCookieDomains.joined(separator: ", "))")
         lines.append("")
-        lines.append("Response body:")
+        lines.append("Bootstrap body:")
+        lines.append(vm.diagBootstrapBody)
+        lines.append("")
+        lines.append("Last API response:")
         lines.append(vm.diagLastBody)
         lines.append("")
         lines.append("Live cookies:")
