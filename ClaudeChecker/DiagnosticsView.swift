@@ -38,7 +38,7 @@ struct DiagnosticsView: View {
 
             Divider()
 
-            Text("Email and org IDs are redacted when copied.")
+            Text("Org IDs are redacted when copied.")
                 .font(.system(size: 10))
                 .foregroundColor(.secondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
