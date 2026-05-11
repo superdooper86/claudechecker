@@ -156,7 +156,6 @@ struct DiagnosticsView: View {
         lines.append("=== ClaudeChecker Diagnostics ===")
         lines.append("Version: \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?") (\(Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"))")
         lines.append("Signed in: \(vm.isSignedIn ? "Yes" : "No")")
-        lines.append("Email: \(vm.userEmail.isEmpty ? "(none)" : vm.userEmail)")
         lines.append("Error: \(vm.errorMessage ?? "(none)")")
         lines.append("")
         lines.append("Last path: \(vm.diagLastPath)")
