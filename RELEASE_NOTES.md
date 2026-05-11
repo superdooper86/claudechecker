@@ -1,3 +1,9 @@
+## What's new in v1.2.1-beta.17
+
+### Bug fixes
+- Fixed "Not signed in" after login by adopting the login WebView directly for API calls — the login WebView is proven-authenticated (user just completed sign-in in it), so reusing it eliminates the problem where a separately-loaded background WebView might not have the full auth context (localStorage tokens, Service Worker state) that claude.ai requires
+- Added diagnostic error messages: JS errors, WebView URL, and unexpected response types are now surfaced in the error banner to aid future debugging
+
 ## What's new in v1.2.1
 
 ### Bug fixes
