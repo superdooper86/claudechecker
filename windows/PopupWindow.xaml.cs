@@ -1,6 +1,10 @@
 using ClaudeCheckerWindows.Controls;
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.InteropServices;
+using System.Text;
+using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Interop;
@@ -463,23 +467,198 @@ public partial class PopupWindow : Window
         SignInButton.Content     = VM.IsSignedIn ? "Re-authenticate" : "Sign In";
     }
 
+    // ── Diagnostics ──────────────────────────────────────────────────
+
+    private void Diagnostics_Click(object s, RoutedEventArgs e)
+    {
+        RebuildDiag();
+        MainPanel.Visibility        = Visibility.Collapsed;
+        SettingsPanel.Visibility    = Visibility.Collapsed;
+        UpdatePanel.Visibility      = Visibility.Collapsed;
+        DiagnosticsPanel.Visibility = Visibility.Visible;
+    }
+
+    private void BackFromDiag_Click(object s, RoutedEventArgs e)
+    {
+        DiagnosticsPanel.Visibility = Visibility.Collapsed;
+        SettingsPanel.Visibility    = Visibility.Visible;
+    }
+
+    private void CopyDiag_Click(object s, RoutedEventArgs e)
+    {
+        Clipboard.SetText(BuildDiagText());
+        CopyDiagButton.Content = "Copied!";
+        var t = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1.5) };
+        t.Tick += (_, _) => { CopyDiagButton.Content = "Copy All"; t.Stop(); };
+        t.Start();
+    }
+
+    private void RebuildDiag()
+    {
+        DiagContentPanel.Children.Clear();
+        var secondary = (SolidColorBrush)Application.Current.Resources["SecondaryBrush"];
+        var border    = (SolidColorBrush)Application.Current.Resources["BorderBrush"];
+        var text      = (SolidColorBrush)Application.Current.Resources["TextBrush"];
+
+        FrameworkElement MakeRow(string label, string value)
+        {
+            var grid = new Grid { Margin = new Thickness(0, 3, 0, 3) };
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(110) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            var lbl = new TextBlock
+            {
+                Text = label, FontSize = 11, Foreground = secondary,
+                VerticalAlignment = VerticalAlignment.Top,
+            };
+            var val = new TextBlock
+            {
+                Text = value, FontSize = 11, FontFamily = new FontFamily("Consolas"),
+                Foreground = text, TextWrapping = TextWrapping.Wrap,
+            };
+            Grid.SetColumn(lbl, 0);
+            Grid.SetColumn(val, 1);
+            grid.Children.Add(lbl);
+            grid.Children.Add(val);
+            return grid;
+        }
+
+        void AddSection(string title, IEnumerable<FrameworkElement> rows)
+        {
+            DiagContentPanel.Children.Add(new TextBlock
+            {
+                Text = title, Style = (Style)Application.Current.Resources["HeaderText"],
+                Margin = new Thickness(0, 12, 0, 6),
+            });
+            var panel = new StackPanel { Margin = new Thickness(12, 10, 12, 10) };
+            foreach (var row in rows) panel.Children.Add(row);
+            DiagContentPanel.Children.Add(new Border
+            {
+                Background      = (SolidColorBrush)Application.Current.Resources["CardBrush"],
+                CornerRadius    = new CornerRadius(6),
+                BorderBrush     = border, BorderThickness = new Thickness(1),
+                Child           = panel,
+            });
+        }
+
+        // APP
+        AddSection("APP",
+        [
+            MakeRow("Version",       Updater.CurrentVersion),
+            MakeRow("Signed in",     VM.IsSignedIn ? "Yes" : "No"),
+            MakeRow("Email",         string.IsNullOrEmpty(VM.UserEmail)          ? "(none)"     : VM.UserEmail),
+            MakeRow("Org ID",        string.IsNullOrEmpty(VM.DiagOrgId)          ? "(none)"     : VM.DiagOrgId),
+            MakeRow("lastActiveOrg", string.IsNullOrEmpty(VM.DiagLastActiveOrg)  ? "(not read)" : VM.DiagLastActiveOrg),
+            MakeRow("Error",         VM.ErrorMessage ?? "(none)"),
+        ]);
+
+        // LAST REQUEST
+        var reqRows = new List<FrameworkElement>
+        {
+            MakeRow("Path",   string.IsNullOrEmpty(VM.DiagLastPath)  ? "(none)" : VM.DiagLastPath),
+            MakeRow("Status", VM.DiagLastStatus == 0 ? "(none)" : VM.DiagLastStatus.ToString()),
+            MakeRow("Error",  string.IsNullOrEmpty(VM.DiagLastError) ? "(none)" : VM.DiagLastError),
+        };
+        if (VM.DiagLastFetch.HasValue)
+            reqRows.Add(MakeRow("Time", VM.DiagLastFetch.Value.ToString("HH:mm:ss")));
+        AddSection("LAST REQUEST", reqRows);
+
+        // COOKIE STORE
+        AddSection("COOKIE STORE",
+        [
+            MakeRow("Total cookies",  VM.DiagCookieCount.ToString()),
+            MakeRow("Claude cookies", VM.DiagClaudeCookieCount.ToString()),
+            MakeRow("All domains",    VM.DiagCookieDomains.Count == 0
+                ? "(none)" : string.Join(", ", VM.DiagCookieDomains)),
+        ]);
+
+        // STORED COOKIE NAMES
+        var storedNames = GetStoredCookieNames();
+        var nameRows = new List<FrameworkElement>();
+        if (storedNames.Count == 0)
+        {
+            nameRows.Add(MakeRow("(none)", ""));
+        }
+        else
+        {
+            var claudeC = storedNames.Where(c =>
+                c.Domain.Contains("claude.ai") || c.Domain.Contains("anthropic.com")).ToList();
+            var otherC  = storedNames.Where(c =>
+                !c.Domain.Contains("claude.ai") && !c.Domain.Contains("anthropic.com")).ToList();
+            foreach (var c in claudeC)
+                nameRows.Add(MakeRow(c.Domain, c.Name));
+            if (otherC.Count > 0)
+                nameRows.Add(MakeRow($"other ({otherC.Count})",
+                    string.Join(", ", otherC.Take(5).Select(c => c.Name))));
+        }
+        AddSection("STORED COOKIE NAMES", nameRows);
+    }
+
+    private static List<(string Name, string Domain)> GetStoredCookieNames()
+    {
+        try
+        {
+            var raw = AppSettings.Default.CookieStore;
+            if (string.IsNullOrEmpty(raw)) return [];
+            using var doc = JsonDocument.Parse(raw);
+            var list = new List<(string Name, string Domain)>();
+            foreach (var elem in doc.RootElement.EnumerateArray())
+            {
+                var name   = elem.TryGetProperty("Name",   out var n) ? n.GetString() ?? "" : "";
+                var domain = elem.TryGetProperty("Domain", out var d) ? d.GetString() ?? "" : "";
+                list.Add((name, domain));
+            }
+            return list;
+        }
+        catch { return []; }
+    }
+
+    private static string BuildDiagText()
+    {
+        var storedNames = GetStoredCookieNames();
+        var sb = new StringBuilder();
+        sb.AppendLine("=== ClaudeChecker Diagnostics (Windows) ===");
+        sb.AppendLine($"Version: {Updater.CurrentVersion}");
+        sb.AppendLine($"Signed in: {(VM.IsSignedIn ? "Yes" : "No")}");
+        sb.AppendLine($"Email: {(string.IsNullOrEmpty(VM.UserEmail) ? "(none)" : VM.UserEmail)}");
+        sb.AppendLine($"Org ID: {(string.IsNullOrEmpty(VM.DiagOrgId) ? "(none)" : VM.DiagOrgId)}");
+        sb.AppendLine($"lastActiveOrg: {(string.IsNullOrEmpty(VM.DiagLastActiveOrg) ? "(not read)" : VM.DiagLastActiveOrg)}");
+        sb.AppendLine($"Error: {VM.ErrorMessage ?? "(none)"}");
+        sb.AppendLine();
+        sb.AppendLine($"Last path: {VM.DiagLastPath}");
+        sb.AppendLine($"Last status: {VM.DiagLastStatus}");
+        sb.AppendLine($"Last error: {VM.DiagLastError}");
+        if (VM.DiagLastFetch.HasValue)
+            sb.AppendLine($"Last fetch: {VM.DiagLastFetch.Value:HH:mm:ss}");
+        sb.AppendLine();
+        sb.AppendLine($"Total cookies: {VM.DiagCookieCount}");
+        sb.AppendLine($"Claude cookies: {VM.DiagClaudeCookieCount}");
+        sb.AppendLine($"Domains: {string.Join(", ", VM.DiagCookieDomains)}");
+        sb.AppendLine();
+        sb.AppendLine("Stored cookies:");
+        foreach (var c in storedNames)
+            sb.AppendLine($"  {c.Domain}  {c.Name}");
+        return sb.ToString();
+    }
+
     // ── Event handlers ───────────────────────────────────────────────
 
     private void Settings_Click(object s, RoutedEventArgs e)
     {
         InitSettings();
-        MainPanel.Visibility     = Visibility.Collapsed;
-        SettingsPanel.Visibility = Visibility.Visible;
-        UpdatePanel.Visibility   = Visibility.Collapsed;
+        MainPanel.Visibility        = Visibility.Collapsed;
+        SettingsPanel.Visibility    = Visibility.Visible;
+        UpdatePanel.Visibility      = Visibility.Collapsed;
+        DiagnosticsPanel.Visibility = Visibility.Collapsed;
     }
 
     private void BackFromSettings_Click(object s, RoutedEventArgs e) => ShowMain();
 
     private void ShowMain()
     {
-        MainPanel.Visibility     = Visibility.Visible;
-        SettingsPanel.Visibility = Visibility.Collapsed;
-        UpdatePanel.Visibility   = Visibility.Collapsed;
+        MainPanel.Visibility        = Visibility.Visible;
+        SettingsPanel.Visibility    = Visibility.Collapsed;
+        UpdatePanel.Visibility      = Visibility.Collapsed;
+        DiagnosticsPanel.Visibility = Visibility.Collapsed;
     }
 
     private async void Refresh_Click(object s, RoutedEventArgs e) => await VM.RefreshAsync();
@@ -491,9 +670,10 @@ public partial class PopupWindow : Window
         CurrentVerLabel.Text  = $"v{Updater.CurrentVersion}";
         NewVerLabel.Text      = $"v{Updater.LatestVersion}";
         ReleaseNotesText.Text = Updater.ReleaseNotes;
-        MainPanel.Visibility     = Visibility.Collapsed;
-        SettingsPanel.Visibility = Visibility.Collapsed;
-        UpdatePanel.Visibility   = Visibility.Visible;
+        MainPanel.Visibility        = Visibility.Collapsed;
+        SettingsPanel.Visibility    = Visibility.Collapsed;
+        UpdatePanel.Visibility      = Visibility.Visible;
+        DiagnosticsPanel.Visibility = Visibility.Collapsed;
     }
 
     private void CloseUpdate_Click(object s, RoutedEventArgs e) => ShowMain();

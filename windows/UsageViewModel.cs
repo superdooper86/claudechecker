@@ -40,6 +40,17 @@ public class UsageViewModel : INotifyPropertyChanged
     public PrepaidCredits? Prepaid          { get => _prepaid;      set => Set(ref _prepaid, value); }
     public ExtraUsage? ExtraUsage           { get => _extraUsage;   set => Set(ref _extraUsage, value); }
 
+    // Diagnostics — updated after each refresh, read by DiagnosticsPanel on demand
+    public string       DiagLastActiveOrg     { get; private set; } = "";
+    public string       DiagOrgId             { get; private set; } = "";
+    public string       DiagLastPath          { get; private set; } = "";
+    public int          DiagLastStatus        { get; private set; }
+    public string       DiagLastError         { get; private set; } = "";
+    public int          DiagCookieCount       { get; private set; }
+    public int          DiagClaudeCookieCount { get; private set; }
+    public List<string> DiagCookieDomains     { get; private set; } = [];
+    public DateTime?    DiagLastFetch         { get; private set; }
+
     private int _refreshInterval = 120;
     public int RefreshInterval
     {
@@ -76,6 +87,9 @@ public class UsageViewModel : INotifyPropertyChanged
     public async Task RefreshAsync()
     {
         await Application.Current.Dispatcher.InvokeAsync(() => IsLoading = true);
+
+        // Snapshot stored cookies once — used for both diag and HttpClient fallback path.
+        var storedCookies = await GetCookiesAsync();
 
         try
         {
@@ -115,13 +129,12 @@ public class UsageViewModel : INotifyPropertyChanged
             }
             else
             {
-                var cookies = await GetCookiesAsync();
-                if (cookies.Count > 0)
+                if (storedCookies.Count > 0)
                 {
                     try
                     {
                         (limits, overage, prepaid, extraUsage, email, orgId, planLabel, _) =
-                            await TryHttpRefreshAsync(cookies);
+                            await TryHttpRefreshAsync(storedCookies);
                     }
                     catch (Exception ex)
                     {
@@ -156,6 +169,16 @@ public class UsageViewModel : INotifyPropertyChanged
                 ErrorMessage = refreshError;
                 LastUpdated  = DateTime.Now;
                 IsLoading    = false;
+
+                // Update diagnostics
+                if (!string.IsNullOrEmpty(orgId)) DiagOrgId = orgId;
+                DiagLastFetch         = DateTime.Now;
+                DiagLastError         = refreshError ?? "";
+                DiagCookieCount       = storedCookies.Count;
+                DiagClaudeCookieCount = storedCookies.Count(c =>
+                    c.Domain.Contains("claude.ai") || c.Domain.Contains("anthropic.com"));
+                DiagCookieDomains     = storedCookies
+                    .Select(c => c.Domain).Distinct().OrderBy(d => d).ToList();
             });
         }
         catch (Exception ex)
@@ -174,14 +197,19 @@ public class UsageViewModel : INotifyPropertyChanged
     private async Task<(List<AgentLimit>, OverageSpendLimit?, PrepaidCredits?, ExtraUsage?, string?, string?, string?)>
         TryBrowserRefreshAsync()
     {
+        // Read lastActiveOrg from document.cookie — the only reliable org source when the
+        // user belongs to multiple orgs. memberships[0] is always the "Individual Org" and
+        // would return 403 on usage endpoints if the paid plan is on a different org.
         const string script = @"(async()=>{try{
             const h={headers:{accept:'application/json'}};
             const b=await(await fetch('/api/bootstrap',h)).json();
             if(b?.error_type==='authentication_error'){window.chrome.webview.postMessage({authError:true});return;}
-            const org0=b?.account?.memberships?.[0]?.organization;
-            let id=org0?.uuid||b?.memberships?.[0]?.organization?.uuid||b?.organizations?.[0]?.uuid||null;
+            const lastActiveOrg=(document.cookie.split(';').map(c=>c.trim().split('=')).find(p=>p[0]==='lastActiveOrg')||[])[1]||null;
+            const allOrgs=(b?.account?.memberships||b?.memberships||[]).map(m=>m?.organization).filter(Boolean);
+            const activeOrg=(lastActiveOrg?allOrgs.find(o=>o?.uuid===lastActiveOrg):null)||allOrgs[0];
+            let id=activeOrg?.uuid||b?.organizations?.[0]?.uuid||null;
             const email=b?.account?.email_address||b?.account?.email||null;
-            const caps=org0?.capabilities||[];
+            const caps=activeOrg?.capabilities||[];
             const capStr=caps.find(c=>typeof c==='string'&&c.startsWith('claude_'))||null;
             const planLabel=capStr?(capStr.slice(7,8).toUpperCase()+capStr.slice(8).toLowerCase()):null;
             if(!id){
@@ -194,7 +222,7 @@ public class UsageViewModel : INotifyPropertyChanged
                 fetch('/api/organizations/'+id+'/overage_spend_limit',h).then(r=>r.ok?r.json():null).catch(()=>null),
                 fetch('/api/organizations/'+id+'/prepaid/credits',h).then(r=>r.ok?r.json():null).catch(()=>null)
             ]);
-            window.chrome.webview.postMessage({email,orgId:id,planLabel,usage:u,overage:ov,prepaid:pp});
+            window.chrome.webview.postMessage({email,orgId:id,planLabel,lastActiveOrg,usage:u,overage:ov,prepaid:pp});
         }catch(ex){window.chrome.webview.postMessage({error:String(ex)});}})()";
 
         var json = await Application.Current.Dispatcher.InvokeAsync(
@@ -216,6 +244,11 @@ public class UsageViewModel : INotifyPropertyChanged
         string? email     = root.TryGetProperty("email",     out var em) && em.ValueKind == JsonValueKind.String ? em.GetString() : null;
         string? orgId     = root.TryGetProperty("orgId",     out var oi) && oi.ValueKind == JsonValueKind.String ? oi.GetString() : null;
         string? planLabel = root.TryGetProperty("planLabel", out var pl) && pl.ValueKind == JsonValueKind.String ? pl.GetString() : null;
+        string? lao       = root.TryGetProperty("lastActiveOrg", out var laoProp) && laoProp.ValueKind == JsonValueKind.String ? laoProp.GetString() : null;
+
+        DiagLastActiveOrg = lao ?? "";
+        DiagLastPath      = $"/api/bootstrap + /api/organizations/…/usage (browser)";
+        DiagLastStatus    = 200;
 
         UsageResponse?     usage       = null;
         OverageSpendLimit? overage     = null;
@@ -236,15 +269,22 @@ public class UsageViewModel : INotifyPropertyChanged
     private async Task<(List<AgentLimit>, OverageSpendLimit?, PrepaidCredits?, ExtraUsage?, string?, string?, string?, bool)>
         TryHttpRefreshAsync(List<(string Name, string Value, string Domain, string Path)> cookies)
     {
+        // Prefer the org the user last had active, not necessarily memberships[0].
+        var lastActiveOrg = cookies.FirstOrDefault(c => c.Name == "lastActiveOrg").Value;
+        DiagLastActiveOrg = lastActiveOrg ?? "";
+
         using var http = BuildClient(cookies);
+
         var bootstrapResp = await http.GetAsync("https://claude.ai/api/bootstrap");
+        DiagLastPath   = "/api/bootstrap";
+        DiagLastStatus = (int)bootstrapResp.StatusCode;
         if ((int)bootstrapResp.StatusCode is 401 or 403)
             throw new Exception("Session expired — please re-authenticate.");
         if (!bootstrapResp.IsSuccessStatusCode)
             throw new Exception($"Bootstrap failed ({(int)bootstrapResp.StatusCode}).");
 
         var bootstrapJson = await bootstrapResp.Content.ReadAsStringAsync();
-        var (email, orgId, planLabel) = ParseBootstrap(bootstrapJson);
+        var (email, orgId, planLabel) = ParseBootstrap(bootstrapJson, lastActiveOrg);
 
         if (string.IsNullOrEmpty(orgId))
             orgId = await FetchOrgIdFromListAsync(http);
@@ -258,6 +298,8 @@ public class UsageViewModel : INotifyPropertyChanged
         await Task.WhenAll(ut, ot, pt);
 
         var usageResp = ut.Result;
+        DiagLastPath   = $"/api/organizations/{orgId}/usage";
+        DiagLastStatus = (int)usageResp.StatusCode;
         if (!usageResp.IsSuccessStatusCode)
             throw new Exception($"Usage fetch failed ({(int)usageResp.StatusCode}).");
 
@@ -361,7 +403,11 @@ public class UsageViewModel : INotifyPropertyChanged
         catch { return null; }
     }
 
-    private static (string? Email, string? OrgId, string? PlanLabel) ParseBootstrap(string json)
+    // Parses bootstrap JSON and returns email, org ID, and plan label.
+    // preferredOrgId (from the lastActiveOrg cookie) selects the correct org when the
+    // user belongs to multiple — memberships[0] is always the "Individual Org" which
+    // returns 403 on usage endpoints if the paid plan is on a different org.
+    private static (string? Email, string? OrgId, string? PlanLabel) ParseBootstrap(string json, string? preferredOrgId = null)
     {
         try
         {
@@ -369,42 +415,57 @@ public class UsageViewModel : INotifyPropertyChanged
             var root = doc.RootElement;
 
             string? email = null;
-            string? orgId = null;
-
             if (root.TryGetProperty("account", out var acct) &&
                 acct.TryGetProperty("email_address", out var em))
                 email = em.GetString();
 
+            // Collect all org objects from memberships
+            var allOrgs = new List<JsonElement>();
             if (root.TryGetProperty("account", out var acctNode) &&
-                acctNode.TryGetProperty("memberships", out var mems) && mems.GetArrayLength() > 0)
+                acctNode.TryGetProperty("memberships", out var mems))
             {
-                var first = mems[0];
-                if (first.TryGetProperty("organization", out var org) &&
-                    org.TryGetProperty("uuid", out var uuid))
-                    orgId = uuid.GetString();
+                foreach (var mem in mems.EnumerateArray())
+                    if (mem.TryGetProperty("organization", out var org))
+                        allOrgs.Add(org);
+            }
+            if (allOrgs.Count == 0 && root.TryGetProperty("memberships", out var rootMems))
+            {
+                foreach (var mem in rootMems.EnumerateArray())
+                    if (mem.TryGetProperty("organization", out var org))
+                        allOrgs.Add(org);
             }
 
-            if (string.IsNullOrEmpty(orgId) &&
-                root.TryGetProperty("memberships", out var rootMems) && rootMems.GetArrayLength() > 0)
+            // Prefer the org matching preferredOrgId, fall back to first
+            JsonElement activeOrg = default;
+            if (!string.IsNullOrEmpty(preferredOrgId))
             {
-                var first = rootMems[0];
-                if (first.TryGetProperty("organization", out var org) &&
-                    org.TryGetProperty("uuid", out var uuid))
-                    orgId = uuid.GetString();
+                foreach (var org in allOrgs)
+                {
+                    if (org.TryGetProperty("uuid", out var u) && u.GetString() == preferredOrgId)
+                    {
+                        activeOrg = org;
+                        break;
+                    }
+                }
             }
+            if (activeOrg.ValueKind == JsonValueKind.Undefined && allOrgs.Count > 0)
+                activeOrg = allOrgs[0];
+
+            string? orgId = null;
+            if (activeOrg.ValueKind != JsonValueKind.Undefined &&
+                activeOrg.TryGetProperty("uuid", out var uuid))
+                orgId = uuid.GetString();
 
             if (string.IsNullOrEmpty(orgId) &&
                 root.TryGetProperty("organizations", out var orgs) && orgs.GetArrayLength() > 0)
             {
-                if (orgs[0].TryGetProperty("uuid", out var uuid))
-                    orgId = uuid.GetString();
+                if (orgs[0].TryGetProperty("uuid", out var u))
+                    orgId = u.GetString();
             }
 
             string? planLabel = null;
-            if (root.TryGetProperty("account", out var acctPlan) &&
-                acctPlan.TryGetProperty("memberships", out var plMems) && plMems.GetArrayLength() > 0 &&
-                plMems[0].TryGetProperty("organization", out var plOrg) &&
-                plOrg.TryGetProperty("capabilities", out var caps) &&
+            if (activeOrg.ValueKind != JsonValueKind.Undefined &&
+                activeOrg.TryGetProperty("capabilities", out var caps) &&
                 caps.ValueKind == JsonValueKind.Array)
             {
                 foreach (var cap in caps.EnumerateArray())
