@@ -33,6 +33,9 @@ class UsageViewModel: ObservableObject {
     // Background WKWebView used for all API calls — runs fetch() in the page's auth context
     private var apiWebView: WKWebView?
     private var apiDelegate: APIWebViewDelegate?
+    // Tracks whether the background WebView has finished its current navigation
+    private var apiWebViewLoaded = false
+    private var apiReadyContinuations: [CheckedContinuation<Void, Never>] = []
 
     init() {
         let saved = UserDefaults.standard.double(forKey: "refresh_interval")
@@ -53,10 +56,29 @@ class UsageViewModel: ObservableObject {
         config.websiteDataStore = WKWebsiteDataStore.default()
         let wv = WKWebView(frame: CGRect(x: 0, y: 0, width: 1, height: 1), configuration: config)
         let del = APIWebViewDelegate()
+        del.onNavigationEnd = { [weak self] in
+            guard let self else { return }
+            self.apiWebViewLoaded = true
+            self.resumeAPIReadyContinuations()
+        }
         wv.navigationDelegate = del
         apiWebView = wv
         apiDelegate = del
         wv.load(URLRequest(url: URL(string: "https://claude.ai")!))
+    }
+
+    private func resumeAPIReadyContinuations() {
+        let pending = apiReadyContinuations
+        apiReadyContinuations.removeAll()
+        pending.forEach { $0.resume() }
+    }
+
+    // Suspends until the background WebView has finished loading.
+    private func waitForAPIWebViewReady() async {
+        guard !apiWebViewLoaded else { return }
+        await withCheckedContinuation { cont in
+            apiReadyContinuations.append(cont)
+        }
     }
 
     // Called after login: reloads the background WebView to pick up the new session, then refreshes.
@@ -65,10 +87,15 @@ class UsageViewModel: ObservableObject {
             await refresh()
             return
         }
-        await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
-            del.onDidFinish = { cont.resume() }
-            wv.load(URLRequest(url: URL(string: "https://claude.ai")!))
+        // Reset readiness and wire up the reload callback before starting the load
+        apiWebViewLoaded = false
+        del.onNavigationEnd = { [weak self] in
+            guard let self else { return }
+            self.apiWebViewLoaded = true
+            self.resumeAPIReadyContinuations()
         }
+        wv.load(URLRequest(url: URL(string: "https://claude.ai")!))
+        await waitForAPIWebViewReady()
         // Brief pause for the page's JS auth state to settle after navigation
         try? await Task.sleep(nanoseconds: 500_000_000)
         await refresh()
@@ -77,6 +104,8 @@ class UsageViewModel: ObservableObject {
     // Runs a fetch() call inside the background WebView's page context (same-origin, credentials included).
     private func webViewFetch(_ path: String) async throws -> (statusCode: Int, body: String) {
         guard let wv = apiWebView else { throw AppError.networkError }
+        // Wait until the WebView has finished loading claude.ai so fetch() has a valid auth context
+        await waitForAPIWebViewReady()
         let js = "const r = await fetch(path, {credentials:'include'}); return {s: r.status, b: await r.text()};"
         let result = try await wv.callAsyncJavaScript(
             js, arguments: ["path": path], in: nil, in: .page)
@@ -107,6 +136,14 @@ class UsageViewModel: ObservableObject {
         prepaidCredits = nil
         overageSpendLimit = nil
         // Reload background WebView to clear its session too
+        apiWebViewLoaded = false
+        if let del = apiDelegate {
+            del.onNavigationEnd = { [weak self] in
+                guard let self else { return }
+                self.apiWebViewLoaded = true
+                self.resumeAPIReadyContinuations()
+            }
+        }
         apiWebView?.load(URLRequest(url: URL(string: "https://claude.ai")!))
     }
 
@@ -353,16 +390,17 @@ class UsageViewModel: ObservableObject {
 // MARK: - API WebView Delegate
 
 private class APIWebViewDelegate: NSObject, WKNavigationDelegate {
-    var onDidFinish: (() -> Void)?
+    // Called on every didFinish / didFail — not cleared after firing, so subsequent navigations also trigger it
+    var onNavigationEnd: (() -> Void)?
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-        let cb = onDidFinish; onDidFinish = nil; cb?()
+        onNavigationEnd?()
     }
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
-        let cb = onDidFinish; onDidFinish = nil; cb?()
+        onNavigationEnd?()
     }
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
-        let cb = onDidFinish; onDidFinish = nil; cb?()
+        onNavigationEnd?()
     }
 }
 
