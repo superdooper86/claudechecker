@@ -75,3 +75,35 @@ jobs:
               --field "content=$content" \
               --field "branch=main"
           fi
+
+      - name: Update Windows stable badge in README on main
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        shell: bash
+        run: |
+          version="${{ steps.version.outputs.version }}"
+          tag="${{ github.ref_name }}"
+          shields_version=$(echo "$version" | sed 's/-/--/g')
+          export WIN_STABLE_BADGE="[![Win Stable](https://img.shields.io/badge/Win_Stable-${shields_version}-blue?style=flat)](https://github.com/${{ github.repository }}/releases/tag/${tag}) <!-- WIN_STABLE_BADGE -->"
+          sha=$(gh api "repos/${{ github.repository }}/contents/README.md?ref=main" --jq .sha)
+          content=$(gh api "repos/${{ github.repository }}/contents/README.md?ref=main" --jq .content | python3 -c "
+          import sys, base64, os
+          raw = sys.stdin.read().strip()
+          text = base64.b64decode(raw).decode()
+          stable_badge = os.environ['WIN_STABLE_BADGE']
+          lines = text.splitlines(keepends=True)
+          out = []
+          for line in lines:
+              if '<!-- WIN_STABLE_BADGE -->' in line:
+                  out.append(stable_badge + chr(10))
+              elif '<!-- WIN_BETA_BADGE -->' in line:
+                  out.append('<!-- WIN_BETA_BADGE -->' + chr(10))
+              else:
+                  out.append(line)
+          print(base64.b64encode(''.join(out).encode()).decode(), end='')
+          ")
+          gh api --method PUT "repos/${{ github.repository }}/contents/README.md" \
+            --field "message=Windows stable badge $tag" \
+            --field "content=$content" \
+            --field "branch=main" \
+            --field "sha=$sha"
