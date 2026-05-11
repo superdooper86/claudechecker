@@ -2,7 +2,6 @@ using System;
 using System.Diagnostics;
 using System.Reflection;
 using System.IO;
-using System.IO.Compression;
 using System.Net.Http;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -136,9 +135,7 @@ public class UpdateManager : INotifyPropertyChanged
 
         try
         {
-            var tmpDir  = Path.Combine(Path.GetTempPath(), $"CCUpdate_{Guid.NewGuid():N}");
-            Directory.CreateDirectory(tmpDir);
-            var zipPath = Path.Combine(tmpDir, "ClaudeChecker.zip");
+            var installerPath = Path.Combine(Path.GetTempPath(), $"ClaudeCheckerInstaller_{Guid.NewGuid():N}.exe");
 
             using var http = new HttpClient();
             var response   = await http.GetAsync(DownloadUrl, HttpCompletionOption.ResponseHeadersRead);
@@ -148,7 +145,7 @@ public class UpdateManager : INotifyPropertyChanged
             var received = 0L;
 
             await using (var stream = await response.Content.ReadAsStreamAsync())
-            await using (var file   = File.Create(zipPath))
+            await using (var file   = File.Create(installerPath))
             {
                 var buffer = new byte[81920];
                 int read;
@@ -157,48 +154,21 @@ public class UpdateManager : INotifyPropertyChanged
                     await file.WriteAsync(buffer.AsMemory(0, read));
                     received += read;
                     if (total > 0)
-                        DownloadProgress = (double)received / total * 0.8;
+                        DownloadProgress = (double)received / total;
                 }
             }
 
-            StatusMessage    = "Unpacking…";
-            DownloadProgress = 0.85;
-
-            var extractDir = Path.Combine(tmpDir, "extracted");
-            ZipFile.ExtractToDirectory(zipPath, extractDir, overwriteFiles: true);
-
-            // Find the installer exe
-            var newExe = FindExe(extractDir);
-            if (newExe == null) throw new Exception("ClaudeChecker.exe not found in update package.");
-
-            DownloadProgress = 0.95;
-            StatusMessage    = "Installing…";
-
-            // Write a batch script to replace the exe after we exit
-            var currentExe = Process.GetCurrentProcess().MainModule!.FileName;
-            var script = $"""
-                @echo off
-                timeout /t 2 /nobreak > nul
-                copy /Y "{newExe}" "{currentExe}"
-                start "" "{currentExe}"
-                rmdir /S /Q "{tmpDir}"
-                """;
-
-            var scriptPath = Path.Combine(Path.GetTempPath(), "claudechecker_update.bat");
-            await File.WriteAllTextAsync(scriptPath, script);
-
             DownloadProgress = 1.0;
-            StatusMessage    = "Installed! Relaunching…";
+            StatusMessage    = "Installing…";
             UpdateComplete   = true;
 
-            await Task.Delay(800);
+            await Task.Delay(500);
 
             Process.Start(new ProcessStartInfo
             {
-                FileName        = "cmd.exe",
-                Arguments       = $"/C \"{scriptPath}\"",
-                CreateNoWindow  = true,
-                UseShellExecute = false,
+                FileName        = installerPath,
+                Arguments       = "/SILENT /CLOSEAPPLICATIONS",
+                UseShellExecute = true,
             });
 
             Application.Current.Dispatcher.Invoke(() => Application.Current.Shutdown());
@@ -209,13 +179,6 @@ public class UpdateManager : INotifyPropertyChanged
             IsDownloading = false;
             StatusMessage = "";
         }
-    }
-
-    private static string? FindExe(string dir)
-    {
-        foreach (var f in Directory.EnumerateFiles(dir, "ClaudeChecker.exe", SearchOption.AllDirectories))
-            return f;
-        return null;
     }
 
     public static bool IsNewer(string version, string current)
