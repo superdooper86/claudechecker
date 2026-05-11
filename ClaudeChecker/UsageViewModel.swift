@@ -84,7 +84,7 @@ class UsageViewModel: ObservableObject {
     // Fetches an API path by navigating the WebView to the URL and reading the response.
     // Navigation lets WebKit send full browser headers and cookies automatically —
     // more reliable than callAsyncJavaScript fetch, which bypasses SPA auth interceptors.
-    private func webViewFetch(_ path: String) async throws -> (statusCode: Int, body: String) {
+    private func webViewFetch(_ path: String) async throws -> (Int, String) {
         guard let wv = apiWebView else { throw AppError.detail("no api webview") }
         return try await withCheckedThrowingContinuation { cont in
             let delegate = APIFetchDelegate(continuation: cont)
