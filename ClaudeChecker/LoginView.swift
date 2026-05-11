@@ -41,10 +41,12 @@ struct LoginWebView: NSViewRepresentable {
             // cookie domain or name.
             webView.callAsyncJavaScript(
                 "const r = await fetch('/api/bootstrap', {credentials: 'include'}); return r.status;",
-                arguments: [:], in: nil, in: .defaultClient
+                arguments: [:], in: nil, in: .page
             ) { [weak self] result in
                 guard let self, !self.didAuthenticate else { return }
-                if case .success(let val) = result, let status = val as? Int, status == 200 {
+                // JS numbers arrive as NSNumber (Double-backed), not Swift Int
+                if case .success(let val) = result,
+                   let n = val as? NSNumber, n.intValue == 200 {
                     self.didAuthenticate = true
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                         self.onAuthenticated()
