@@ -98,16 +98,17 @@ class UsageViewModel: ObservableObject {
         }
     }
 
-    // Called after login: reloads the background WebView to pick up the new session.
-    func reloadAPIWebViewAndRefresh() async {
-        guard let wv = apiWebView else {
-            await refresh()
-            return
-        }
-        apiWebViewLoaded = false
-        wv.load(URLRequest(url: URL(string: "https://claude.ai")!))
-        await waitForAPIWebViewReady()
-        try? await Task.sleep(nanoseconds: 500_000_000)
+    // Called after login: adopts the proven-authenticated login WebView for all API calls.
+    // This avoids the background WebView potentially missing auth tokens that only exist
+    // in the login WebView's JS context (localStorage, Service Workers, etc.).
+    func adoptAndRefresh(_ loginWebView: WKWebView) async {
+        loginWebView.removeFromSuperview()
+        loginWebView.frame = NSRect(x: 0, y: 0, width: 1, height: 1)
+        apiWindow?.contentView?.addSubview(loginWebView)
+        apiWebView = loginWebView
+        apiWebViewLoaded = true
+        resumeAPIReadyContinuations()
+        try? await Task.sleep(nanoseconds: 400_000_000)
         await refresh()
     }
 
@@ -115,15 +116,22 @@ class UsageViewModel: ObservableObject {
     // This includes all credentials the page has (cookies, localStorage tokens, etc.),
     // which URLSession cannot access — hence using callAsyncJavaScript instead.
     private func webViewFetch(_ path: String) async throws -> (statusCode: Int, body: String) {
-        guard let wv = apiWebView else { throw AppError.networkError }
+        guard let wv = apiWebView else { throw AppError.detail("no webview") }
         await waitForAPIWebViewReady()
         let js = "const r = await fetch(path, {credentials:'include'}); return {s: r.status, b: await r.text()};"
-        let result = try await wv.callAsyncJavaScript(
-            js, arguments: ["path": path], in: nil, in: .page)
-        guard let d = result as? [String: Any],
-              let s = (d["s"] as? NSNumber)?.intValue,
-              let b = d["b"] as? String else { throw AppError.networkError }
-        return (s, b)
+        do {
+            let result = try await wv.callAsyncJavaScript(js, arguments: ["path": path], in: nil, in: .page)
+            guard let d = result as? [String: Any],
+                  let s = (d["s"] as? NSNumber)?.intValue,
+                  let b = d["b"] as? String else {
+                throw AppError.detail("bad result: \(String(describing: result).prefix(120))")
+            }
+            return (s, b)
+        } catch let e as AppError { throw e }
+        catch {
+            let loc = wv.url?.absoluteString ?? "?"
+            throw AppError.detail("JS err @ \(loc): \(error.localizedDescription.prefix(100))")
+        }
     }
 
     private func checkInitialSignInState() async {
@@ -409,10 +417,12 @@ private class APIWebViewDelegate: NSObject, WKNavigationDelegate {
 enum AppError: LocalizedError {
     case notAuthenticated
     case networkError
+    case detail(String)
     var errorDescription: String? {
         switch self {
-        case .notAuthenticated: return "Not signed into claude.ai — open claude.ai in your browser first."
-        case .networkError:     return "Network error fetching usage data."
+        case .notAuthenticated:   return "Not signed into claude.ai — open claude.ai in your browser first."
+        case .networkError:       return "Network error fetching usage data."
+        case .detail(let msg):    return msg
         }
     }
 }
