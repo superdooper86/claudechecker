@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
@@ -495,7 +496,7 @@ public partial class PopupWindow : Window
     private void CopyDiag_Click(object s, RoutedEventArgs e)
     {
         Clipboard.SetText(BuildDiagText());
-        CopyDiagButton.Content = "Copied!";
+        CopyDiagButton.Content = "Copied! (IDs redacted)";
         var t = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1.5) };
         t.Tick += (_, _) => { CopyDiagButton.Content = "Copy All"; t.Stop(); };
         t.Start();
@@ -553,7 +554,6 @@ public partial class PopupWindow : Window
         [
             MakeRow("Version",       Updater.CurrentVersion),
             MakeRow("Signed in",     VM.IsSignedIn ? "Yes" : "No"),
-            MakeRow("Email",         string.IsNullOrEmpty(VM.UserEmail)          ? "(none)"     : VM.UserEmail),
             MakeRow("Org ID",        string.IsNullOrEmpty(VM.DiagOrgId)          ? "(none)"     : VM.DiagOrgId),
             MakeRow("lastActiveOrg", string.IsNullOrEmpty(VM.DiagLastActiveOrg)  ? "(not read)" : VM.DiagLastActiveOrg),
             MakeRow("Error",         VM.ErrorMessage ?? "(none)"),
@@ -627,7 +627,6 @@ public partial class PopupWindow : Window
         sb.AppendLine("=== ClaudeChecker Diagnostics (Windows) ===");
         sb.AppendLine($"Version: {Updater.CurrentVersion}");
         sb.AppendLine($"Signed in: {(VM.IsSignedIn ? "Yes" : "No")}");
-        sb.AppendLine($"Email: {(string.IsNullOrEmpty(VM.UserEmail) ? "(none)" : VM.UserEmail)}");
         sb.AppendLine($"Org ID: {(string.IsNullOrEmpty(VM.DiagOrgId) ? "(none)" : VM.DiagOrgId)}");
         sb.AppendLine($"lastActiveOrg: {(string.IsNullOrEmpty(VM.DiagLastActiveOrg) ? "(not read)" : VM.DiagLastActiveOrg)}");
         sb.AppendLine($"Error: {VM.ErrorMessage ?? "(none)"}");
@@ -645,8 +644,11 @@ public partial class PopupWindow : Window
         sb.AppendLine("Stored cookies:");
         foreach (var c in storedNames)
             sb.AppendLine($"  {c.Domain}  {c.Name}");
-        return sb.ToString();
+        return RedactUUIDs(sb.ToString());
     }
+
+    private static string RedactUUIDs(string text) =>
+        Regex.Replace(text, @"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}", "****");
 
     // ── Event handlers ───────────────────────────────────────────────
 
