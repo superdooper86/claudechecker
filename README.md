@@ -10,7 +10,7 @@
 [![Swift](https://img.shields.io/badge/Swift-5.9-F05138?style=flat&logo=swift&logoColor=white)](https://swift.org)
 [![Version](https://img.shields.io/badge/version-1.2.0-orange?style=flat)](https://github.com/superdooper86/claudechecker/releases)
 [![License](https://img.shields.io/badge/license-MIT-blue?style=flat)](LICENSE)
-[![Beta](https://img.shields.io/badge/beta-1.2.1--beta.9-orange?style=flat)](https://github.com/superdooper86/claudechecker/releases/tag/v1.2.1-beta.9) <!-- BETA_BADGE -->
+[![Beta](https://img.shields.io/badge/beta-1.2.1--beta.10-orange?style=flat)](https://github.com/superdooper86/claudechecker/releases/tag/v1.2.1-beta.10) <!-- BETA_BADGE -->
 
 </div>
 
