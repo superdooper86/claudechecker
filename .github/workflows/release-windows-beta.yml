@@ -84,7 +84,7 @@ jobs:
           version="${{ steps.version.outputs.version }}"
           tag="${{ github.ref_name }}"
           shields_version=$(echo "$version" | sed 's/-/--/g')
-          export WIN_BADGE="[![Windows Beta](https://img.shields.io/badge/Windows_beta-${shields_version}-blue?style=flat)](https://github.com/${{ github.repository }}/releases/tag/${tag}) <!-- WIN_BETA_BADGE -->"
+          export WIN_BADGE="[![Win Beta](https://img.shields.io/badge/Win_Beta-${shields_version}-blue?style=flat)](https://github.com/${{ github.repository }}/releases/tag/${tag}) <!-- WIN_BETA_BADGE -->"
           sha=$(gh api "repos/${{ github.repository }}/contents/README.md?ref=main" --jq .sha)
           content=$(gh api "repos/${{ github.repository }}/contents/README.md?ref=main" --jq .content | python3 -c "
           import sys, base64, os
