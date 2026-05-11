@@ -1,4 +1,8 @@
-## What's new in v1.3.2
+## What's new in v1.3.3
 
-### Reliability
-- Data now loads automatically on every app launch without requiring manual re-authentication. The background WebView is anchored in a hidden window so macOS no longer throttles its JavaScript execution.
+### Diagnostics improvements
+- Org IDs are now redacted when copying diagnostics text (privacy)
+- Removed stale Cookie Store section (always showed 0)
+- All fields (Org ID, lastActiveOrg, Last error, Time) now included in copied output
+- Last error now shows "(none)" instead of blank when there are no errors
+- Privacy note updated to reflect what is and isn't redacted
