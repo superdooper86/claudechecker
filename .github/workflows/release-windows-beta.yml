@@ -75,3 +75,28 @@ jobs:
               --field "content=$content" \
               --field "branch=main"
           fi
+
+      - name: Update Windows beta badge in README on main
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        shell: bash
+        run: |
+          version="${{ steps.version.outputs.version }}"
+          tag="${{ github.ref_name }}"
+          shields_version=$(echo "$version" | sed 's/-/--/g')
+          export WIN_BADGE="[![Windows Beta](https://img.shields.io/badge/Windows_beta-${shields_version}-blue?style=flat)](https://github.com/${{ github.repository }}/releases/tag/${tag}) <!-- WIN_BETA_BADGE -->"
+          sha=$(gh api "repos/${{ github.repository }}/contents/README.md?ref=main" --jq .sha)
+          content=$(gh api "repos/${{ github.repository }}/contents/README.md?ref=main" --jq .content | python3 -c "
+          import sys, base64, os
+          raw = sys.stdin.read().strip()
+          text = base64.b64decode(raw).decode()
+          badge = os.environ['WIN_BADGE']
+          lines = text.splitlines(keepends=True)
+          out = [badge + chr(10) if '<!-- WIN_BETA_BADGE -->' in line else line for line in lines]
+          print(base64.b64encode(''.join(out).encode()).decode(), end='')
+          ")
+          gh api --method PUT "repos/${{ github.repository }}/contents/README.md" \
+            --field "message=Windows beta badge $tag" \
+            --field "content=$content" \
+            --field "branch=main" \
+            --field "sha=$sha"
