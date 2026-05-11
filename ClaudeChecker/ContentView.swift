@@ -117,7 +117,7 @@ struct ContentView: View {
         }
         .sheet(isPresented: $showLogin) {
             LoginSheetView(isPresented: $showLogin) {
-                Task { await vm.reloadAPIWebViewAndRefresh() }
+                Task { await vm.refresh() }
             }
         }
         .sheet(isPresented: $showUpdateSheet) {
