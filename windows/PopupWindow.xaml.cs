@@ -495,13 +495,21 @@ public partial class PopupWindow : Window
 
     private void CopyDiag_Click(object s, RoutedEventArgs e)
     {
-        var diagText = BuildDiagText();
-        for (int i = 0; i < 5; i++)
+        try
         {
-            try { Clipboard.SetText(diagText); break; }
-            catch (Exception) { System.Threading.Thread.Sleep(100); }
+            // SetDataObject(data, false) skips Flush() — avoids CLIPBRD_E_CANT_OPEN crash
+            var diagText = BuildDiagText();
+            for (int i = 0; i < 5; i++)
+            {
+                try { Clipboard.SetDataObject(diagText, false); break; }
+                catch (Exception) { System.Threading.Thread.Sleep(100); }
+            }
+            CopyDiagButton.Content = "Copied! (IDs redacted)";
         }
-        CopyDiagButton.Content = "Copied! (IDs redacted)";
+        catch (Exception)
+        {
+            CopyDiagButton.Content = "Copy failed";
+        }
         var t = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1.5) };
         t.Tick += (_, _) => { CopyDiagButton.Content = "Copy All"; t.Stop(); };
         t.Start();
