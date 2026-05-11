@@ -32,26 +32,13 @@ struct LoginWebView: NSViewRepresentable {
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
             guard !didAuthenticate else { return }
-            // Don't fire on the login/auth pages themselves
-            if let url = webView.url?.absoluteString,
-               url.contains("/login") || url.contains("/auth") { return }
-
-            // Ask the WebView itself whether we're authenticated — it uses its own
-            // session (cookies, localStorage, etc.) so we don't need to know the
-            // cookie domain or name.
-            webView.callAsyncJavaScript(
-                "const r = await fetch('/api/bootstrap', {credentials: 'include'}); return r.status;",
-                arguments: [:], in: nil, in: .page
-            ) { [weak self] result in
-                guard let self, !self.didAuthenticate else { return }
-                // JS numbers arrive as NSNumber (Double-backed), not Swift Int
-                if case .success(let val) = result,
-                   let n = val as? NSNumber, n.intValue == 200 {
-                    self.didAuthenticate = true
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                        self.onAuthenticated()
-                    }
-                }
+            guard let url = webView.url?.absoluteString else { return }
+            // Stay on login/auth pages — user hasn't completed sign-in yet
+            if url.contains("/login") || url.contains("/auth") { return }
+            // Navigated away from login — server redirected us, so sign-in completed
+            didAuthenticate = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                self.onAuthenticated()
             }
         }
     }

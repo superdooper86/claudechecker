@@ -130,13 +130,7 @@ class UsageViewModel: ObservableObject {
 
     private func claudeAPIRequest(for url: URL) async -> URLRequest {
         var req = URLRequest(url: url)
-        req.setValue("application/json, text/plain, */*", forHTTPHeaderField: "accept")
-        req.setValue("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36", forHTTPHeaderField: "User-Agent")
-        req.setValue("https://claude.ai", forHTTPHeaderField: "Origin")
-        req.setValue("https://claude.ai/", forHTTPHeaderField: "Referer")
-        req.setValue("same-origin", forHTTPHeaderField: "sec-fetch-site")
-        req.setValue("cors", forHTTPHeaderField: "sec-fetch-mode")
-        req.setValue("empty", forHTTPHeaderField: "sec-fetch-dest")
+        req.setValue("application/json", forHTTPHeaderField: "accept")
         if let cookie = await claudeCookieHeader() {
             req.setValue(cookie, forHTTPHeaderField: "Cookie")
         }
