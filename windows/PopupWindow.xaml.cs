@@ -708,7 +708,9 @@ public partial class PopupWindow : Window
 
             _ = Task.Run(async () =>
             {
-                await Task.Delay(3000);
+                // Re-navigate background browser with fresh session, then refresh immediately
+                await Application.Current.Dispatcher.InvokeAsync(
+                    () => App.BackgroundBrowser.ReloadAsync()).Task.Unwrap();
                 await VM.RefreshAsync();
                 await Application.Current.Dispatcher.InvokeAsync(InitSettings);
             });
