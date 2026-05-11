@@ -12,7 +12,7 @@
 <br/>
 [![Version](https://img.shields.io/badge/version-1.3.2-orange?style=flat)](https://github.com/superdooper86/claudechecker/releases)
 [![Beta](https://img.shields.io/badge/beta-1.3.3--beta.1-orange?style=flat)](https://github.com/superdooper86/claudechecker/releases/tag/v1.3.3-beta.1) <!-- BETA_BADGE -->
-<!-- WIN_BETA_BADGE -->
+[![Windows Beta](https://img.shields.io/badge/Windows_beta-0.0.1--beta.52-blue?style=flat)](https://github.com/superdooper86/claudechecker/releases/tag/win-v0.0.1-beta.52) <!-- WIN_BETA_BADGE -->
 
 </div>
 
