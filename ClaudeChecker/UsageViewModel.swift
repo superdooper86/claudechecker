@@ -43,11 +43,8 @@ class UsageViewModel: ObservableObject {
 
     private func checkInitialSignInState() async {
         let cookies = await WKWebsiteDataStore.default().httpCookieStore.allCookies()
-        let hasSession = cookies.contains {
-            $0.domain.contains("claude.ai") &&
-            ($0.name == "sessionKey" || $0.name == "__Secure-next-auth.session-token")
-        }
-        if hasSession { isSignedIn = true }
+        let hasAnyCookie = cookies.contains { $0.domain.contains("claude.ai") }
+        if hasAnyCookie { isSignedIn = true }
     }
 
     func signOut() async {
