@@ -30,6 +30,16 @@ class UsageViewModel: ObservableObject {
     private var previousPercents: [String: Double] = [:]
     private var firedThresholds: [String: Set<Int>] = [:]
 
+    // Diagnostics — populated on every urlFetch call
+    @Published var diagCookieCount: Int = 0
+    @Published var diagClaudeCookieCount: Int = 0
+    @Published var diagCookieDomains: [String] = []
+    @Published var diagLastPath: String = ""
+    @Published var diagLastStatus: Int = 0
+    @Published var diagLastBody: String = ""
+    @Published var diagLastError: String = ""
+    @Published var diagLastFetch: Date? = nil
+
     init() {
         let saved = UserDefaults.standard.double(forKey: "refresh_interval")
         refreshInterval = saved > 0 ? saved : 60
@@ -41,10 +51,14 @@ class UsageViewModel: ObservableObject {
         Task { await checkInitialSignInState() }
     }
 
-    // Called after login: cookies are already in WKWebsiteDataStore.default() —
-    // brief sleep lets the store commit, then refresh uses URLSession.
+    // Called after login: poll until session cookies appear (they may commit slightly
+    // after the auth redirect fires), then refresh.
     func adoptAndRefresh(_ loginWebView: WKWebView) async {
-        try? await Task.sleep(nanoseconds: 500_000_000)
+        for _ in 0..<30 {
+            let cookies = await WKWebsiteDataStore.default().httpCookieStore.allCookies()
+            if cookies.contains(where: { $0.domain.contains("claude.ai") }) { break }
+            try? await Task.sleep(nanoseconds: 300_000_000)
+        }
         await refresh()
     }
 
@@ -56,7 +70,20 @@ class UsageViewModel: ObservableObject {
         let claudeCookies = cookies.filter {
             $0.domain.contains("claude.ai") || $0.domain.contains("anthropic.com")
         }
-        guard !claudeCookies.isEmpty else { throw AppError.notAuthenticated }
+
+        // Record cookie diagnostics
+        diagCookieCount = cookies.count
+        diagClaudeCookieCount = claudeCookies.count
+        diagCookieDomains = Array(Set(cookies.map { $0.domain })).sorted()
+        diagLastPath = path
+        diagLastFetch = Date()
+        diagLastError = ""
+
+        guard !claudeCookies.isEmpty else {
+            let msg = "No claude.ai cookies (\(cookies.count) total in store)"
+            diagLastError = msg
+            throw AppError.detail(msg)
+        }
 
         var req = URLRequest(url: URL(string: "https://claude.ai\(path)")!)
         req.httpShouldHandleCookies = false
@@ -75,13 +102,25 @@ class UsageViewModel: ObservableObject {
         req.setValue(
             "\"Chromium\";v=\"124\", \"Google Chrome\";v=\"124\", \"Not-A.Brand\";v=\"99\"",
             forHTTPHeaderField: "sec-ch-ua")
-        req.setValue("?0",      forHTTPHeaderField: "sec-ch-ua-mobile")
+        req.setValue("?0",        forHTTPHeaderField: "sec-ch-ua-mobile")
         req.setValue("\"macOS\"", forHTTPHeaderField: "sec-ch-ua-platform")
 
-        let (data, response) = try await URLSession.shared.data(for: req)
-        guard let http = response as? HTTPURLResponse else { throw AppError.networkError }
-        let body = String(data: data, encoding: .utf8) ?? ""
-        return (http.statusCode, body)
+        do {
+            let (data, response) = try await URLSession.shared.data(for: req)
+            guard let http = response as? HTTPURLResponse else { throw AppError.networkError }
+            let body = String(data: data, encoding: .utf8) ?? ""
+            diagLastStatus = http.statusCode
+            diagLastBody   = String(body.prefix(500))
+            if http.statusCode != 200 {
+                diagLastError = "HTTP \(http.statusCode)"
+            }
+            return (http.statusCode, body)
+        } catch let e as AppError { throw e }
+        catch {
+            let msg = error.localizedDescription
+            diagLastError = msg
+            throw AppError.detail(msg)
+        }
     }
 
     private func checkInitialSignInState() async {
@@ -173,11 +212,12 @@ class UsageViewModel: ObservableObject {
 
     private func fetchBootstrap() async throws -> (orgId: String?, email: String?, planLabel: String?) {
         let (status, body) = try await urlFetch("/api/bootstrap")
-        if status == 401 || status == 403 { throw AppError.notAuthenticated }
-        guard status == 200 else { throw AppError.detail("bootstrap \(status): \(body.prefix(80))") }
-        // If WebKit followed a redirect to the login page we get HTML instead of JSON.
+        if status == 401 || status == 403 {
+            throw AppError.detail("HTTP \(status) — \(body.prefix(120))")
+        }
+        guard status == 200 else { throw AppError.detail("HTTP \(status): \(body.prefix(80))") }
         guard body.trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("{") else {
-            throw AppError.notAuthenticated
+            throw AppError.detail("Non-JSON response (HTML?): \(body.prefix(80))")
         }
         guard let data = body.data(using: .utf8),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
