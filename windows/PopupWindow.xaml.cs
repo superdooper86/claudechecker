@@ -495,7 +495,12 @@ public partial class PopupWindow : Window
 
     private void CopyDiag_Click(object s, RoutedEventArgs e)
     {
-        Clipboard.SetText(BuildDiagText());
+        var diagText = BuildDiagText();
+        for (int i = 0; i < 5; i++)
+        {
+            try { Clipboard.SetText(diagText); break; }
+            catch (Exception) { System.Threading.Thread.Sleep(100); }
+        }
         CopyDiagButton.Content = "Copied! (IDs redacted)";
         var t = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1.5) };
         t.Tick += (_, _) => { CopyDiagButton.Content = "Copy All"; t.Stop(); };
