@@ -145,11 +145,16 @@ struct DiagnosticsView: View {
         lines.append("=== ClaudeChecker Diagnostics ===")
         lines.append("Version: \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?") (\(Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"))")
         lines.append("Signed in: \(vm.isSignedIn ? "Yes" : "No")")
+        lines.append("Org ID: \(UserDefaults.standard.string(forKey: \"claude_org_id\") ?? \"(none)\")")
+        lines.append("lastActiveOrg: \(vm.diagLastActiveOrg.isEmpty ? \"(not read)\" : vm.diagLastActiveOrg)")
         lines.append("Error: \(vm.errorMessage ?? "(none)")")
         lines.append("")
         lines.append("Last path: \(vm.diagLastPath)")
         lines.append("Last status: \(vm.diagLastStatus)")
         lines.append("Last error: \(vm.diagLastError)")
+        if let t = vm.diagLastFetch {
+            lines.append("Time: \(t.formatted(date: .omitted, time: .standard))")
+        }
         lines.append("")
         lines.append("")
         lines.append("Live cookies:")
