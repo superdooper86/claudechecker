@@ -66,36 +66,6 @@ struct DiagnosticsView: View {
 
                     Divider()
 
-                    // Bootstrap body
-                    if !vm.diagBootstrapBody.isEmpty {
-                        DiagSection(title: "Bootstrap Response (first 500 chars)") {
-                            Text(vm.diagBootstrapBody)
-                                .font(.system(size: 10, design: .monospaced))
-                                .foregroundColor(.secondary)
-                                .textSelection(.enabled)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(8)
-                                .background(Color.primary.opacity(0.04))
-                                .cornerRadius(5)
-                        }
-                        Divider()
-                    }
-
-                    // Response body
-                    if !vm.diagLastBody.isEmpty {
-                        DiagSection(title: "Last API Response (first 500 chars)") {
-                            Text(vm.diagLastBody)
-                                .font(.system(size: 10, design: .monospaced))
-                                .foregroundColor(.secondary)
-                                .textSelection(.enabled)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(8)
-                                .background(Color.primary.opacity(0.04))
-                                .cornerRadius(5)
-                        }
-                        Divider()
-                    }
-
                     // Cookie summary
                     DiagSection(title: "Cookie Store") {
                         DiagRow("Total cookies",       "\(vm.diagCookieCount)")
@@ -190,11 +160,6 @@ struct DiagnosticsView: View {
         lines.append("Claude cookies: \(vm.diagClaudeCookieCount)")
         lines.append("Domains: \(vm.diagCookieDomains.joined(separator: ", "))")
         lines.append("")
-        lines.append("Bootstrap body:")
-        lines.append(vm.diagBootstrapBody)
-        lines.append("")
-        lines.append("Last API response:")
-        lines.append(vm.diagLastBody)
         lines.append("")
         lines.append("Live cookies:")
         for c in liveAllCookies {

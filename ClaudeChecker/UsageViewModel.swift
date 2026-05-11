@@ -40,10 +40,8 @@ class UsageViewModel: ObservableObject {
     @Published var diagCookieDomains: [String] = []
     @Published var diagLastPath: String = ""
     @Published var diagLastStatus: Int = 0
-    @Published var diagLastBody: String = ""
     @Published var diagLastError: String = ""
     @Published var diagLastActiveOrg: String = ""   // lastActiveOrg cookie value from JS
-    @Published var diagBootstrapBody: String = ""   // raw bootstrap response (first 500 chars)
     @Published var diagLastFetch: Date? = nil
 
     init() {
@@ -117,7 +115,6 @@ class UsageViewModel: ObservableObject {
         diagLastPath = path
         diagLastFetch = Date()
         diagLastStatus = status
-        diagLastBody = String(body.prefix(500))
         diagLastError = status != 200 ? "JS HTTP \(status)" : ""
         return (status, body)
     }
@@ -181,7 +178,6 @@ class UsageViewModel: ObservableObject {
             guard let http = response as? HTTPURLResponse else { throw AppError.networkError }
             let body = String(data: data, encoding: .utf8) ?? ""
             diagLastStatus = http.statusCode
-            diagLastBody   = String(body.prefix(500))
             if http.statusCode != 200 {
                 diagLastError = "HTTP \(http.statusCode)"
             }
@@ -315,7 +311,6 @@ class UsageViewModel: ObservableObject {
         guard body.trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("{") else {
             throw AppError.detail("Non-JSON response (HTML?): \(body.prefix(80))")
         }
-        diagBootstrapBody = String(body.prefix(500))
         guard let data = body.data(using: .utf8),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             return (nil, nil, nil)
