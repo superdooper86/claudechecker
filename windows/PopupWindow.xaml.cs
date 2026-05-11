@@ -135,12 +135,20 @@ public partial class PopupWindow : Window
             FontSize = 10, Foreground = secondary, VerticalAlignment = VerticalAlignment.Center
         });
 
-        // Right: "after reset" when 0%, "today HH:MM" when refreshed today
-        string? refreshLabel = limit.UsedPercent == 0
-            ? "after reset"
-            : VM.LastUpdated?.Date == DateTime.Today
-                ? "today " + VM.LastUpdated.Value.ToString("h:mm tt")
-                : null;
+        // Right: projected limit-hit time, or "after reset" if burn rate won't reach 100% before reset.
+        // BurnRate is stored as usedPercent / windowHours, so hoursToFull = remainingPercent / BurnRate.
+        string? refreshLabel;
+        if (limit.BurnRate <= 0)
+            refreshLabel = "after reset";
+        else
+        {
+            var projectedHit = DateTime.Now.AddHours((100.0 - limit.UsedPercent) / limit.BurnRate);
+            refreshLabel = projectedHit > limit.ResetDate
+                ? "after reset"
+                : projectedHit.Date == DateTime.Today
+                    ? projectedHit.ToString("h:mm tt")
+                    : projectedHit.ToString("d MMM h:mm tt");
+        }
 
         UIElement timeRight;
         if (refreshLabel != null)
