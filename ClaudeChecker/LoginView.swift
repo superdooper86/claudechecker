@@ -39,6 +39,9 @@ struct LoginWebView: NSViewRepresentable {
 
         func checkCurrentURL(_ url: String?) {
             guard !didAuthenticate, let url else { return }
+            // Ignore navigations to external OAuth providers (Google, etc.) —
+            // only consider auth complete when we land back on claude.ai/anthropic.com
+            guard url.contains("claude.ai") || url.contains("anthropic.com") else { return }
             if url.contains("/login") || url.contains("/auth") { return }
             didAuthenticate = true
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
