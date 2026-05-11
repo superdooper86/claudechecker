@@ -75,13 +75,7 @@ jobs:
           content = open('README.md').read()
           content = re.sub(r'version-[0-9][^-]*-orange', 'version-' + v + '-orange', content)
           lines = content.splitlines(keepends=True)
-          out = []
-          for line in lines:
-              if '<!-- BETA_BADGE -->' in line:
-                  continue
-              out.append(line)
-              if 'license-MIT-blue' in line:
-                  out.append('<!-- BETA_BADGE -->' + chr(10))
+          out = ['<!-- BETA_BADGE -->' + chr(10) if '<!-- BETA_BADGE -->' in line else line for line in lines]
           open('README.md', 'w').writelines(out)
           "
 
