@@ -43,8 +43,7 @@ class UsageViewModel: ObservableObject {
 
     private func checkInitialSignInState() async {
         let cookies = await WKWebsiteDataStore.default().httpCookieStore.allCookies()
-        let hasAnyCookie = cookies.contains { $0.domain.contains("claude.ai") || $0.domain.contains("anthropic.com") }
-        if hasAnyCookie { isSignedIn = true }
+        if !cookies.isEmpty { isSignedIn = true }
     }
 
     func signOut() async {
@@ -193,8 +192,10 @@ class UsageViewModel: ObservableObject {
 
     private func claudeCookieHeader() async -> String? {
         let cookies = await WKWebsiteDataStore.default().httpCookieStore.allCookies()
-        let claudeCookies = cookies.filter { $0.domain.contains("claude.ai") || $0.domain.contains("anthropic.com") }
-        return HTTPCookie.requestHeaderFields(with: claudeCookies)["Cookie"]
+        guard !cookies.isEmpty else { return nil }
+        // Send all cookies from the app's WebView store — the session token may be
+        // on any domain (claude.ai, anthropic.com, or an auth sub-service).
+        return HTTPCookie.requestHeaderFields(with: cookies)["Cookie"]
     }
 
     private func fetchUsage(orgId: String) async throws -> UsageResponse {

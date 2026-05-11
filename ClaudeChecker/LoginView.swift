@@ -36,13 +36,19 @@ struct LoginWebView: NSViewRepresentable {
             if let url = webView.url?.absoluteString,
                url.contains("/login") || url.contains("/auth") { return }
 
-            // URL is not a login/auth page, so if any claude.ai cookie exists we're signed in
-            WKWebsiteDataStore.default().httpCookieStore.getAllCookies { cookies in
-                let hasAnyCookie = cookies.contains { $0.domain.contains("claude.ai") || $0.domain.contains("anthropic.com") }
-                guard hasAnyCookie, !self.didAuthenticate else { return }
-                self.didAuthenticate = true
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                    self.onAuthenticated()
+            // Ask the WebView itself whether we're authenticated — it uses its own
+            // session (cookies, localStorage, etc.) so we don't need to know the
+            // cookie domain or name.
+            webView.callAsyncJavaScript(
+                "const r = await fetch('/api/bootstrap', {credentials: 'include'}); return r.status;",
+                arguments: [:], in: nil, in: .defaultClient
+            ) { [weak self] result in
+                guard let self, !self.didAuthenticate else { return }
+                if case .success(let val) = result, let status = val as? Int, status == 200 {
+                    self.didAuthenticate = true
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        self.onAuthenticated()
+                    }
                 }
             }
         }
