@@ -33,13 +33,11 @@ public partial class LoginWindow : Window
 
             var cookies = await Browser.CoreWebView2.CookieManager.GetCookiesAsync("https://claude.ai");
             var signedIn = System.Linq.Enumerable.Any(cookies, c =>
-                c.Name.Equals("sessionKey", System.StringComparison.OrdinalIgnoreCase) ||
-                c.Name.StartsWith("sk-ant",  System.StringComparison.OrdinalIgnoreCase));
+                c.Domain.Contains("claude.ai") || c.Domain.Contains("anthropic.com"));
 
             await Dispatcher.InvokeAsync(() =>
             {
-                DoneButton.IsEnabled = !uri.Contains("/login") && !uri.Contains("/signin");
-                StatusText.Text = signedIn
+                StatusText.Text = signedIn && !uri.Contains("/login") && !uri.Contains("/signin")
                     ? "Signed in — click Done to continue."
                     : "Complete sign-in, then click Done.";
             });
