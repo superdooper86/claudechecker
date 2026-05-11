@@ -1,5 +1,5 @@
 {
-  "version": "1.2.1-beta.3",
-  "url": "https://github.com/superdooper86/claudechecker/releases/download/v1.2.1-beta.3/ClaudeChecker.zip",
+  "version": "1.2.1-beta.4",
+  "url": "https://github.com/superdooper86/claudechecker/releases/download/v1.2.1-beta.4/ClaudeChecker.zip",
   "notes": "## What's new in v1.2.1\n\n### Bug fixes\n- Fixed \"Not signed in\" showing incorrectly on launch when the session was already active\n- Sign-in state is now detected immediately from stored cookies on startup, before the first data refresh completes\n- Fixed Re-authenticate (and Sign In) not detecting an existing session — the login window now loads `claude.ai` directly so already-signed-in users are detected correctly and the window auto-dismisses\n- Fixed \"No API key configured\" showing after signing out — now correctly shows \"Not signed in\" with a prompt to sign in\n- Added `/api/organizations` as a final fallback for org ID resolution when the bootstrap API response doesn't include it\n- Session cookie detection now checks both `sessionKey` and `__Secure-next-auth.session-token` cookie names"
 }
