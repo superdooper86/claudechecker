@@ -30,6 +30,10 @@ class UsageViewModel: ObservableObject {
     private var previousPercents: [String: Double] = [:]
     private var firedThresholds: [String: Set<Int>] = [:]
 
+    // WebView used for JS-based API calls (avoids URLSession 403 fingerprinting issues)
+    private var apiWebView: WKWebView?
+    private var navWaiter: WKNavWaiter?
+
     // Diagnostics — populated on every urlFetch call
     @Published var diagCookieCount: Int = 0
     @Published var diagClaudeCookieCount: Int = 0
@@ -51,15 +55,77 @@ class UsageViewModel: ObservableObject {
         Task { await checkInitialSignInState() }
     }
 
-    // Called after login: poll until session cookies appear (they may commit slightly
-    // after the auth redirect fires), then refresh.
+    // Called after login: store the webview (already on claude.ai) so jsFetch can use it.
     func adoptAndRefresh(_ loginWebView: WKWebView) async {
         for _ in 0..<30 {
             let cookies = await WKWebsiteDataStore.default().httpCookieStore.allCookies()
             if cookies.contains(where: { $0.domain.contains("claude.ai") }) { break }
             try? await Task.sleep(nanoseconds: 300_000_000)
         }
+        if loginWebView.url?.host?.hasSuffix("claude.ai") == true {
+            apiWebView = loginWebView
+        } else {
+            await prepareApiWebView()
+        }
         await refresh()
+    }
+
+    // Creates (or reuses) a background WKWebView navigated to claude.ai for JS fetch.
+    private func prepareApiWebView() async {
+        if let wv = apiWebView, wv.url?.host?.hasSuffix("claude.ai") == true { return }
+        let config = WKWebViewConfiguration()
+        config.websiteDataStore = WKWebsiteDataStore.default()
+        let wv = WKWebView(frame: CGRect(x: 0, y: 0, width: 1, height: 1), configuration: config)
+        apiWebView = wv
+        await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
+            let waiter = WKNavWaiter { cont.resume() }
+            self.navWaiter = waiter
+            wv.navigationDelegate = waiter
+            wv.load(URLRequest(url: URL(string: "https://claude.ai/")!))
+        }
+        wv.navigationDelegate = nil
+        navWaiter = nil
+    }
+
+    // Runs a fetch() inside the live claude.ai WebView — same browser context as the frontend,
+    // so no CORS/fingerprinting issues that URLSession hits.
+    private func jsFetch(_ path: String) async throws -> (Int, String) {
+        guard let wv = apiWebView else { throw AppError.networkError }
+        let js = """
+        const r = await fetch('\(path)', {
+            credentials: 'include',
+            headers: { 'Accept': 'application/json' }
+        });
+        const body = await r.text();
+        return {status: r.status, body: body};
+        """
+        let result: Any? = try await withCheckedThrowingContinuation { cont in
+            wv.callAsyncJavaScript(js, arguments: [:], in: nil, in: .defaultClient) { res in
+                switch res {
+                case .success(let val): cont.resume(returning: val)
+                case .failure(let err): cont.resume(throwing: err)
+                }
+            }
+        }
+        guard let dict = result as? [String: Any],
+              let status = dict["status"] as? Int,
+              let body = dict["body"] as? String else {
+            throw AppError.networkError
+        }
+        diagLastPath = path
+        diagLastFetch = Date()
+        diagLastStatus = status
+        diagLastBody = String(body.prefix(500))
+        diagLastError = status != 200 ? "JS HTTP \(status)" : ""
+        return (status, body)
+    }
+
+    // Use JS fetch when apiWebView is ready on claude.ai, otherwise fall back to URLSession.
+    private func apiFetch(_ path: String) async throws -> (Int, String) {
+        if let wv = apiWebView, wv.url?.host?.hasSuffix("claude.ai") == true {
+            return try await jsFetch(path)
+        }
+        return try await urlFetch(path)
     }
 
     // Fetches an API path via URLSession with browser-like headers.
@@ -128,7 +194,10 @@ class UsageViewModel: ObservableObject {
 
     private func checkInitialSignInState() async {
         let cookies = await WKWebsiteDataStore.default().httpCookieStore.allCookies()
-        if !cookies.isEmpty { isSignedIn = true }
+        guard cookies.contains(where: { $0.domain.contains("claude.ai") }) else { return }
+        isSignedIn = true
+        await prepareApiWebView()
+        await refresh()
     }
 
     func signOut() async {
@@ -138,6 +207,7 @@ class UsageViewModel: ObservableObject {
         let claudeRecords = records.filter { $0.displayName.contains("claude.ai") || $0.displayName.contains("anthropic.com") }
         await store.removeData(ofTypes: types, for: claudeRecords)
         UserDefaults.standard.removeObject(forKey: "claude_org_id")
+        apiWebView = nil
         isSignedIn = false
         isNotAuthenticated = true
         lastUpdated = nil
@@ -214,7 +284,7 @@ class UsageViewModel: ObservableObject {
     // MARK: - Bootstrap
 
     private func fetchBootstrap() async throws -> (orgId: String?, email: String?, planLabel: String?) {
-        let (status, body) = try await urlFetch("/api/bootstrap")
+        let (status, body) = try await apiFetch("/api/bootstrap")
         if status == 401 || status == 403 {
             throw AppError.detail("HTTP \(status) — \(body.prefix(120))")
         }
@@ -236,7 +306,7 @@ class UsageViewModel: ObservableObject {
             orgId = (json["organizations"] as? [[String: Any]])?.first?["uuid"] as? String
         }
         if orgId == nil {
-            if let (orgsStatus, orgsBody) = try? await urlFetch("/api/organizations"),
+            if let (orgsStatus, orgsBody) = try? await apiFetch("/api/organizations"),
                orgsStatus == 200,
                let orgsData = orgsBody.data(using: .utf8),
                let orgs = try? JSONSerialization.jsonObject(with: orgsData) as? [[String: Any]] {
@@ -259,7 +329,7 @@ class UsageViewModel: ObservableObject {
     // MARK: - Fetch usage
 
     private func fetchUsage(orgId: String) async throws -> UsageResponse {
-        let (status, body) = try await urlFetch("/api/organizations/\(orgId)/usage")
+        let (status, body) = try await apiFetch("/api/organizations/\(orgId)/usage")
         if status == 401 || status == 403 { throw AppError.detail("usage \(status): \(body.prefix(200))") }
         guard status == 200 else { throw AppError.networkError }
         guard let data = body.data(using: .utf8) else { throw AppError.networkError }
@@ -267,14 +337,14 @@ class UsageViewModel: ObservableObject {
     }
 
     private func fetchPrepaidCredits(orgId: String) async throws -> PrepaidCredits? {
-        guard let (status, body) = try? await urlFetch("/api/organizations/\(orgId)/prepaid/credits"),
+        guard let (status, body) = try? await apiFetch("/api/organizations/\(orgId)/prepaid/credits"),
               status == 200,
               let data = body.data(using: .utf8) else { return nil }
         return try? JSONDecoder().decode(PrepaidCredits.self, from: data)
     }
 
     private func fetchOverageSpendLimit(orgId: String) async throws -> OverageSpendLimit? {
-        guard let (status, body) = try? await urlFetch("/api/organizations/\(orgId)/overage_spend_limit"),
+        guard let (status, body) = try? await apiFetch("/api/organizations/\(orgId)/overage_spend_limit"),
               status == 200,
               let data = body.data(using: .utf8) else { return nil }
         return try? JSONDecoder().decode(OverageSpendLimit.self, from: data)
@@ -393,6 +463,17 @@ class UsageViewModel: ObservableObject {
     }
 }
 
+
+// Navigation delegate that resolves a continuation on first finish/error (idempotent).
+private class WKNavWaiter: NSObject, WKNavigationDelegate {
+    private var done = false
+    private let onDone: () -> Void
+    init(_ onDone: @escaping () -> Void) { self.onDone = onDone }
+    private func finish() { guard !done else { return }; done = true; onDone() }
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) { finish() }
+    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) { finish() }
+    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) { finish() }
+}
 
 enum AppError: LocalizedError {
     case notAuthenticated
