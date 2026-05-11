@@ -35,11 +35,11 @@ jobs:
             -p:Version=${{ steps.version.outputs.version }} `
             -o publish
 
-      - name: Zip
+      - name: Build installer
         shell: pwsh
         run: |
           Copy-Item -Recurse windows/Assets publish/Assets
-          Compress-Archive -Path publish/* -DestinationPath ClaudeChecker-Windows.zip
+          & "C:\Program Files (x86)\Inno Setup 6\iscc.exe" /DAppVersion="${{ steps.version.outputs.version }}" windows\installer.iss
 
       - name: Create GitHub release
         env:
@@ -47,7 +47,7 @@ jobs:
         shell: bash
         run: |
           notes=$(cat windows/RELEASE_NOTES.md 2>/dev/null || echo "Windows release ${{ steps.version.outputs.version }}")
-          gh release create "$GITHUB_REF_NAME" ClaudeChecker-Windows.zip \
+          gh release create "$GITHUB_REF_NAME" ClaudeChecker-Installer.exe \
             --title "$GITHUB_REF_NAME" \
             --notes "$notes"
 
@@ -59,7 +59,7 @@ jobs:
           notes=$(cat windows/RELEASE_NOTES.md 2>/dev/null || echo "Windows release ${{ steps.version.outputs.version }}")
           content=$(jq -n \
             --arg version "${{ steps.version.outputs.version }}" \
-            --arg url "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/ClaudeChecker-Windows.zip" \
+            --arg url "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/ClaudeChecker-Installer.exe" \
             --arg notes "$notes" \
             '{version: $version, url: $url, notes: $notes}' | base64 -w0)
           sha=$(gh api "repos/${{ github.repository }}/contents/version-windows.json?ref=main" --jq .sha 2>/dev/null || echo "")
