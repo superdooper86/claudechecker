@@ -18,16 +18,43 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var updateManager = UpdateManager()
     var refreshTimer: Timer?
     var cookiePrimerView: WKWebView?
+    var cookiePrimerWindow: NSWindow?
+    var primerNavDelegate: PrimerNavDelegate?
     var cancellables = Set<AnyCancellable>()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
 
-        // Hidden WKWebView to prime the shared cookie store
+        // Background WebView that loads claude.ai on every launch.
+        // Anchored in a real (off-screen, invisible) NSWindow so WebKit doesn't throttle
+        // JS execution. When the page finishes loading the nav delegate calls
+        // adoptPrimerWebView, which sets it as the API WebView and runs the first fetch.
         let config = WKWebViewConfiguration()
         config.websiteDataStore = WKWebsiteDataStore.default()
-        cookiePrimerView = WKWebView(frame: .zero, configuration: config)
-        cookiePrimerView?.load(URLRequest(url: URL(string: "https://claude.ai")!))
+        let wv = WKWebView(frame: CGRect(x: 0, y: 0, width: 1, height: 1), configuration: config)
+        let win = NSWindow(
+            contentRect: NSRect(x: -9999, y: -9999, width: 1, height: 1),
+            styleMask: [],
+            backing: .buffered,
+            defer: false
+        )
+        win.contentView = wv
+        win.alphaValue = 0
+        win.orderFront(nil)
+        cookiePrimerWindow = win
+        cookiePrimerView = wv
+
+        let delegate = PrimerNavDelegate { [weak self] in
+            guard let self, let wv = self.cookiePrimerView else { return }
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                await self.usageViewModel.adoptPrimerWebView(wv)
+                await self.updateManager.checkForUpdates()
+            }
+        }
+        primerNavDelegate = delegate
+        wv.navigationDelegate = delegate
+        wv.load(URLRequest(url: URL(string: "https://claude.ai")!))
 
         // Status item
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -134,12 +161,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
-        // Initial fetch after cookie primer + update check
-        Task {
-            try? await Task.sleep(nanoseconds: 1_500_000_000)
-            await usageViewModel.refresh()
-            await updateManager.checkForUpdates()
-        }
     }
 
     private func setMenubarIcon(button: NSStatusBarButton) {
@@ -240,4 +261,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
 }
 
-
+// One-shot WKNavigationDelegate: fires onDone on first finish or error, then goes silent.
+final class PrimerNavDelegate: NSObject, WKNavigationDelegate {
+    private var done = false
+    private let onDone: () -> Void
+    init(_ onDone: @escaping () -> Void) { self.onDone = onDone }
+    private func finish() { guard !done else { return }; done = true; onDone() }
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) { finish() }
+    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) { finish() }
+    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) { finish() }
+}

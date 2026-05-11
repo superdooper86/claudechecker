@@ -1,4 +1,4 @@
-## What's new in v1.3.1
+## What's new in v1.3.2
 
-### Privacy
-- Diagnostics panel no longer displays API response bodies, which could contain account and financial data. Status codes, error messages, cookie names, and request paths are still shown.
+### Reliability
+- Data now loads automatically on every app launch without requiring manual re-authentication. The background WebView is anchored in a hidden window so macOS no longer throttles its JavaScript execution.

@@ -32,7 +32,6 @@ class UsageViewModel: ObservableObject {
 
     // WebView used for JS-based API calls (avoids URLSession 403 fingerprinting issues)
     private var apiWebView: WKWebView?
-    private var navWaiter: WKNavWaiter?
 
     // Diagnostics
     @Published var diagCookieCount: Int = 0
@@ -55,36 +54,22 @@ class UsageViewModel: ObservableObject {
         Task { await checkInitialSignInState() }
     }
 
-    // Called after login: store the webview (already on claude.ai) so jsFetch can use it.
+    // Called by AppDelegate once the primer WebView has loaded claude.ai.
+    // Sets it as the API WebView and triggers the first data fetch.
+    func adoptPrimerWebView(_ wv: WKWebView) async {
+        apiWebView = wv
+        await refresh()
+    }
+
+    // Called after login: store the login WebView (already on claude.ai) so jsFetch can use it.
     func adoptAndRefresh(_ loginWebView: WKWebView) async {
         for _ in 0..<30 {
             let cookies = await WKWebsiteDataStore.default().httpCookieStore.allCookies()
             if cookies.contains(where: { $0.domain.contains("claude.ai") }) { break }
             try? await Task.sleep(nanoseconds: 300_000_000)
         }
-        if loginWebView.url?.host?.hasSuffix("claude.ai") == true {
-            apiWebView = loginWebView
-        } else {
-            await prepareApiWebView()
-        }
+        apiWebView = loginWebView
         await refresh()
-    }
-
-    // Creates (or reuses) a background WKWebView navigated to claude.ai for JS fetch.
-    private func prepareApiWebView() async {
-        if let wv = apiWebView, wv.url?.host?.hasSuffix("claude.ai") == true { return }
-        let config = WKWebViewConfiguration()
-        config.websiteDataStore = WKWebsiteDataStore.default()
-        let wv = WKWebView(frame: CGRect(x: 0, y: 0, width: 1, height: 1), configuration: config)
-        apiWebView = wv
-        await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
-            let waiter = WKNavWaiter { cont.resume() }
-            self.navWaiter = waiter
-            wv.navigationDelegate = waiter
-            wv.load(URLRequest(url: URL(string: "https://claude.ai/")!))
-        }
-        wv.navigationDelegate = nil
-        navWaiter = nil
     }
 
     // Runs a fetch() inside the live claude.ai WebView — same browser context as the frontend,
@@ -194,8 +179,8 @@ class UsageViewModel: ObservableObject {
         let cookies = await WKWebsiteDataStore.default().httpCookieStore.allCookies()
         guard cookies.contains(where: { $0.domain.contains("claude.ai") }) else { return }
         isSignedIn = true
-        await prepareApiWebView()
-        await refresh()
+        // AppDelegate's primer WebView will call adoptPrimerWebView once it loads,
+        // which triggers the first real data fetch.
     }
 
     func signOut() async {
@@ -486,16 +471,6 @@ class UsageViewModel: ObservableObject {
 }
 
 
-// Navigation delegate that resolves a continuation on first finish/error (idempotent).
-private class WKNavWaiter: NSObject, WKNavigationDelegate {
-    private var done = false
-    private let onDone: () -> Void
-    init(_ onDone: @escaping () -> Void) { self.onDone = onDone }
-    private func finish() { guard !done else { return }; done = true; onDone() }
-    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) { finish() }
-    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) { finish() }
-    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) { finish() }
-}
 
 enum AppError: LocalizedError {
     case notAuthenticated
