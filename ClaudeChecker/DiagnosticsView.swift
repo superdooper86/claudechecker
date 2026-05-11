@@ -47,8 +47,6 @@ struct DiagnosticsView: View {
                         DiagRow("Build",   Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?")
                         DiagRow("Signed in", vm.isSignedIn ? "Yes" : "No")
                         DiagRow("Email",   vm.userEmail.isEmpty ? "(none)" : vm.userEmail)
-                        DiagRow("Org ID",  UserDefaults.standard.string(forKey: "claude_org_id") ?? "(none)")
-                        DiagRow("lastActiveOrg", vm.diagLastActiveOrg.isEmpty ? "(not read)" : vm.diagLastActiveOrg)
                         DiagRow("Error",   vm.errorMessage ?? "(none)")
                     }
 
@@ -149,8 +147,6 @@ struct DiagnosticsView: View {
         lines.append("Version: \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?") (\(Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"))")
         lines.append("Signed in: \(vm.isSignedIn ? "Yes" : "No")")
         lines.append("Email: \(vm.userEmail.isEmpty ? "(none)" : vm.userEmail)")
-        lines.append("Org ID: \(UserDefaults.standard.string(forKey: "claude_org_id") ?? "(none)")")
-        lines.append("lastActiveOrg: \(vm.diagLastActiveOrg.isEmpty ? "(not read)" : vm.diagLastActiveOrg)")
         lines.append("Error: \(vm.errorMessage ?? "(none)")")
         lines.append("")
         lines.append("Last path: \(vm.diagLastPath)")
