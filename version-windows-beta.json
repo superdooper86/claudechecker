@@ -1,5 +1,5 @@
 {
-  "version": "0.0.1-beta.63",
-  "url": "https://github.com/superdooper86/claudechecker/releases/download/win-v0.0.1-beta.63/ClaudeChecker-Installer.exe",
-  "notes": "## What's new in beta.62\r\n\r\n### Installer\r\n- App now ships as a proper Windows installer (no more zip extract)\r\n- Installs to user AppData — no admin rights required\r\n- Auto-update now downloads and silently runs the new installer, then relaunches\r\n- Desktop shortcut creation is optional during install\r\n\r\n### Bug fixes\r\n- Fixed app crash on launch (startup DllNotFoundException caused by single-file publish; all DLLs now installed alongside the exe)\r\n- Fixed clicking Copy in Diagnostics crashing the app (CLIPBRD_E_CANT_OPEN)\r\n- Fixed Sign In — Done button now always clickable; session detection no longer depends on specific cookie names that may have changed\r\n\r\n### Diagnostics\r\n- Org IDs are now redacted when copying diagnostics text\r\n- Removed stale Cookie Store section (always showed 0)\r\n- Fixed missing fields in copied diagnostics output\r\n- Privacy note added below diagnostics header"
+  "version": "0.0.1-beta.64",
+  "url": "https://git.jamesbone.net/coder/claudechecker/releases/download/win-v0.0.1-beta.64/ClaudeChecker-Installer.exe",
+  "notes": "## What's new in beta.64\n\n- Updates and release downloads now come from git.jamesbone.net.\n- Windows installers now build through Gitea Actions from main.\n"
 }

@@ -1,3 +1,5 @@
+> **Moved to [Gitea](https://git.jamesbone.net/coder/claudechecker).** Builds and releases now run there. This GitHub repository remains available so older installations can discover their migration update.
+
 <div align="center">
 
 <img src="https://raw.githubusercontent.com/superdooper86/claudechecker/main/ClaudeChecker/Assets.xcassets/AppIcon.appiconset/icon_128@2x.png" width="128" height="128" alt="ClaudeChecker icon" />
